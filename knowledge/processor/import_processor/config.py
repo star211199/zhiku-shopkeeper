@@ -59,6 +59,15 @@ class ImportConfig:
         default_factory=lambda: os.getenv("ENTITY_NAME_COLLECTION", "")
     )
 
+    # ==================== MinerU 配置 ====================
+    mineru_api_token: str = field(
+        default_factory=lambda: os.getenv("MINERU_API_TOKEN", "")
+    )
+
+    mineru_base_url: str = field(
+        default_factory=lambda: os.getenv("MINERU_BASE_URL", "")
+    )
+
     # ==================== MinIO 配置 ====================
     minio_endpoint: str = field(
         default_factory=lambda: os.getenv("MINIO_ENDPOINT", "")

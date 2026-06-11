@@ -1,0 +1,6 @@
+/processor/import_processor/input_dir
+/processor/import_processor/output_dir
+
+.env
+requirements.txt
+__init__.py
