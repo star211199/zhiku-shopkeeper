@@ -1,6 +1,12 @@
-/processor/import_processor/input_dir
-/processor/import_processor/output_dir
+# 忽略特定文件夹（带斜杠明确表示文件夹）
+/processor/import_processor/input_dir/
+/processor/import_processor/output_dir/
 
+# 忽略所有 __init__.py（如果真的需要）
+# __init__.py
+
+# 环境变量文件
 .env
+
+# 依赖文件
 requirements.txt
-__init__.py
