@@ -197,6 +197,7 @@ class PdfToMdNode(BaseNode):
         # 4. 返回md文件的路径
         return str(new_md_file_path)
 
+
 if __name__ == "__main__":
     setup_logging(level=DEBUG)
     node = PdfToMdNode()
@@ -205,6 +206,5 @@ if __name__ == "__main__":
         "pdf_path": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\input_dir\万用表RS-12的使用.pdf",
         "file_dir": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\output_dir"
     }
-
     result = node(state)
     print(result)
