@@ -22,7 +22,6 @@ class PdfToMdNode(BaseNode):
 
         # 2. 下载ZIP并提取MD文件
         self.log_step(step_name="Step2", message="下载Zip并解压")
-
         file_dir = state.get("file_dir","")
         file_dir_obj = Path(file_dir)
         md_path = self._extract_md(zip_url,file_dir_obj,pdf_path_obj)
@@ -31,6 +30,7 @@ class PdfToMdNode(BaseNode):
         return state
 
     def _upload_pdf_and_query_result(self,config,pdf_path_obj:Path)->str:
+        """将PDF文件上传到MinerU解析并轮询查询结果"""
         # 1.检查MinerU配置
         mineru_token = config.mineru_api_token
         base_url = config.mineru_base_url
@@ -145,6 +145,7 @@ class PdfToMdNode(BaseNode):
 
 
     def _extract_md(self,zip_url:str,file_dir_obj:Path,pdf_file_obj:Path)->str:
+        """下载生成的.zip包并解压到指定的目录，给生成的markdown文件重命名"""
         # 1.发送get请求下载zip包 --> response
         try:
             res = requests.get(zip_url, timeout=20)
