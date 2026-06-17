@@ -62,8 +62,8 @@ class AIClients(BaseClientManager):
     @classmethod
     def _create_llm_client(cls, response_format) -> ChatOpenAI:
         try:
-            api_key = cls._require_env("OPENAI_API_KEY")
-            base_url = cls._require_env("OPENAI_API_BASE")
+            api_key = cls._require_env("OPEN_API_KEY")
+            base_url = cls._require_env("OPEN_API_BASE")
             model_name = cls._require_env('LLM_DEFAULT_MODEL')
 
             model_kwargs = {}

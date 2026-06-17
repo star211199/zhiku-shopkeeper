@@ -50,3 +50,31 @@ class StorageClients(BaseClientManager):
         except Exception as e:
             logger.error(f"MinIO 客户端创建失败: {e}")
             raise ConnectionError(f"MinIO 连接失败: {e}") from e
+
+    # ── Milvus ──
+    @classmethod
+    def get_milvus_client(cls) -> MilvusClient:
+        return cls._get_or_create("_milvus_client", cls._milvus_lock, cls._create_milvus)
+
+    @classmethod
+    def _create_milvus(cls) -> MilvusClient:
+        try:
+            uri = cls._require_env("MILVUS_URL")
+
+            # 默认本地文件或 TCP 连接
+            client = MilvusClient(uri=uri)
+
+            # 测试连接
+            logger.info(f"Milvus 客户端初始化成功 (uri={uri})")
+
+            # 可选：检查集合是否存在
+            collections = client.list_collections()
+            logger.info(f"当前可用集合: {collections}")
+
+            return client
+
+        except EnvironmentError:
+            raise
+        except Exception as e:
+            logger.error(f"Milvus 客户端创建失败: {e}")
+            raise ConnectionError(f"Milvus 连接失败: {e}") from e

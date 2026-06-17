@@ -4,11 +4,13 @@
 定义统一的节点接口规范，提供通用功能
 """
 import sys
+import time
 from abc import ABC, abstractmethod
 from typing import TypeVar, Optional
 import logging
 from knowledge.processor.import_processor.config import ImportConfig, get_config
 from knowledge.processor.import_processor.exceptions import ImportProcessError
+from knowledge.utils.task_util import add_running_task, add_done_task, add_node_duration
 
 T = TypeVar("T")  # 泛型状态类型
 
@@ -65,8 +67,21 @@ class BaseNode(ABC):
             # 1. 开始准备执行节点
             self.logger.info(f"--- {self.name} 开始 ---")
 
+            # 从state中获取task_id
+            task_id = state.get("task_id")
+
+            # 添加当前节点到running列表
+            add_running_task(task_id,self.name)
+
+            start_time = time.time()
             # 2. 执行节点
             result = self.process(state)
+            end_time = time.time()
+
+            # 添加当前节点到done列表
+            add_done_task(task_id,self.name)
+
+            add_node_duration(task_id,self.name,duration=end_time-start_time)
 
             # 3. 执行节点成功
             self.logger.info(f"--- {self.name} 完成 ---")

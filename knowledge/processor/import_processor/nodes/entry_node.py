@@ -47,7 +47,7 @@ class EntryNode(BaseNode):
             state["md_path"] = import_file_path
         # 3.2.2 如果是md文件,则设置is_md_enable为True, 设置md_path的值为import_file_path
         elif suffix == ".pdf":
-            state["is_md_read_enabled"] = False
+            state["is_pdf_read_enabled"] = True
             state["pdf_path"] = import_file_path
         else:
             # 抛异常

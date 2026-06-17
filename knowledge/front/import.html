@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>文件导入服务</title>
+
+    <!-- 加载 Inter 字体 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============================================
+           设计令牌 (Design Tokens) — 统一变量体系
+           ============================================ */
+        :root {
+            /* 背景层级 */
+            --bg-deep: #020203;
+            --bg-base: #050506;
+            --bg-elevated: #0a0a0c;
+
+            /* 表面色 */
+            --surface: rgba(255, 255, 255, 0.05);
+            --surface-hover: rgba(255, 255, 255, 0.08);
+
+            /* 前景文本 */
+            --foreground: #EDEDEF;
+            --foreground-muted: #8A8F98;
+            --foreground-subtle: rgba(255, 255, 255, 0.60);
+
+            /* 强调色系 */
+            --accent: #5E6AD2;
+            --accent-bright: #6872D9;
+            --accent-glow: rgba(94, 106, 210, 0.30);
+            --accent-glow-strong: rgba(94, 106, 210, 0.45);
+
+            /* 边框 */
+            --border-default: rgba(255, 255, 255, 0.06);
+            --border-hover: rgba(255, 255, 255, 0.10);
+            --border-accent: rgba(94, 106, 210, 0.30);
+            --border-accent-hover: rgba(94, 106, 210, 0.50);
+
+            /* 状态色 — 柔和低饱和 */
+            --status-uploading: #b08a3a;
+            --status-uploading-bg: rgba(176, 138, 58, 0.18);
+            --status-uploading-glow: rgba(176, 138, 58, 0.30);
+            --status-processing: #5E6AD2;
+            --status-processing-bg: rgba(94, 106, 210, 0.18);
+            --status-processing-glow: rgba(94, 106, 210, 0.35);
+            --status-completed: #4a9e7b;
+            --status-completed-bg: rgba(74, 158, 123, 0.18);
+            --status-completed-glow: rgba(74, 158, 123, 0.30);
+            --status-error: #b85a5a;
+            --status-error-bg: rgba(184, 90, 90, 0.18);
+            --status-error-glow: rgba(184, 90, 90, 0.30);
+
+            /* 圆角 */
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-xl: 16px;
+            --radius-full: 9999px;
+
+            /* 动画 */
+            --ease-expo-out: cubic-bezier(0.16, 1, 0.3, 1);
+            --duration-fast: 180ms;
+            --duration-normal: 250ms;
+            --duration-slow: 350ms;
+            --duration-blob: 9s;
+
+            /* 间距 */
+            --spacing-xs: 6px;
+            --spacing-sm: 10px;
+            --spacing-md: 16px;
+            --spacing-lg: 24px;
+            --spacing-xl: 32px;
+            --spacing-2xl: 40px;
+
+            /* 字体 */
+            --font-sans: 'Inter', 'Geist Sans', system-ui, -apple-system, sans-serif;
+            --font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+        }
+
+        /* ============================================
+           全局重置 & 基础样式
+           ============================================ */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        html {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+
+            /* 第一层：基础渐变背景 */
+            background:
+                radial-gradient(ellipse 900px 600px at 15% 8%, rgba(94, 106, 210, 0.10) 0%, transparent 55%),
+                radial-gradient(ellipse 700px 500px at 80% 20%, rgba(94, 106, 210, 0.07) 0%, transparent 50%),
+                radial-gradient(ellipse 650px 450px at 50% 75%, rgba(104, 114, 217, 0.05) 0%, transparent 50%),
+                radial-gradient(ellipse at top, #0a0a0f 0%, #050506 50%, #020203 100%);
+            background-color: var(--bg-base);
+            background-attachment: fixed;
+            color: var(--foreground);
+        }
+
+        /* 第二层：噪点纹理 — body::before */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 1;
+            opacity: 0.018;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='1'/%3E%3C/svg%3E");
+            background-size: 180px 180px;
+            background-repeat: repeat;
+        }
+
+        /* 第三层：网格叠加 — body::after */
+        body::after {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 2;
+            opacity: 0.022;
+            background-image:
+                linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+            background-size: 64px 64px;
+        }
+
+        /* ============================================
+           动态 Blob 光斑（第四层视觉效果）
+           ============================================ */
+        .bg-blob {
+            position: fixed;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(120px);
+            opacity: 0.28;
+            will-change: transform;
+        }
+        .bg-blob--1 {
+            width: 580px;
+            height: 580px;
+            background: radial-gradient(circle at center, rgba(94, 106, 210, 0.55) 0%, transparent 70%);
+            top: -12%;
+            left: -8%;
+            animation: blobFloat1 var(--duration-blob) ease-in-out infinite alternate;
+        }
+        .bg-blob--2 {
+            width: 480px;
+            height: 480px;
+            background: radial-gradient(circle at center, rgba(104, 114, 217, 0.45) 0%, transparent 70%);
+            bottom: -15%;
+            right: -6%;
+            animation: blobFloat2 calc(var(--duration-blob) * 0.85) ease-in-out infinite alternate;
+        }
+        .bg-blob--3 {
+            width: 380px;
+            height: 380px;
+            background: radial-gradient(circle at center, rgba(94, 106, 210, 0.38) 0%, transparent 70%);
+            top: 45%;
+            left: 55%;
+            animation: blobFloat3 calc(var(--duration-blob) * 1.1) ease-in-out infinite alternate;
+        }
+
+        @keyframes blobFloat1 {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(60px, -45px) scale(1.06);
+            }
+            66% {
+                transform: translate(-30px, 35px) scale(0.95);
+            }
+            100% {
+                transform: translate(20px, -20px) scale(1.03);
+            }
+        }
+        @keyframes blobFloat2 {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(-55px, -30px) scale(1.05);
+            }
+            66% {
+                transform: translate(40px, 25px) scale(0.94);
+            }
+            100% {
+                transform: translate(-15px, -35px) scale(1.02);
+            }
+        }
+        @keyframes blobFloat3 {
+            0% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(-40px, 50px) scale(0.96);
+            }
+            66% {
+                transform: translate(35px, -40px) scale(1.04);
+            }
+            100% {
+                transform: translate(-25px, 15px) scale(1.01);
+            }
+        }
+
+        /* ============================================
+           主容器 — 玻璃拟态
+           ============================================ */
+        .container {
+            position: relative;
+            z-index: 3;
+            width: 100%;
+            max-width: 800px;
+            background: var(--surface);
+            backdrop-filter: blur(28px) saturate(130%);
+            -webkit-backdrop-filter: blur(28px) saturate(130%);
+            padding: var(--spacing-2xl) var(--spacing-xl);
+            border-radius: var(--radius-xl);
+            border: 1px solid var(--border-default);
+            box-shadow:
+                0 1px 2px rgba(0, 0, 0, 0.35),
+                0 4px 10px rgba(0, 0, 0, 0.25),
+                0 14px 32px rgba(0, 0, 0, 0.22),
+                0 32px 64px rgba(0, 0, 0, 0.18),
+                inset 0 1px 0 rgba(255, 255, 255, 0.025);
+            color: var(--foreground);
+            transition: box-shadow var(--duration-slow) var(--ease-expo-out);
+            margin-top: 10px;
+            margin-bottom: 30px;
+        }
+
+        .container:hover {
+            box-shadow:
+                0 1px 2px rgba(0, 0, 0, 0.35),
+                0 4px 10px rgba(0, 0, 0, 0.25),
+                0 14px 32px rgba(0, 0, 0, 0.22),
+                0 32px 64px rgba(0, 0, 0, 0.18),
+                0 0 0 1px rgba(94, 106, 210, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.03);
+        }
+
+        /* ============================================
+           标题
+           ============================================ */
+        h1 {
+            color: var(--foreground);
+            text-align: center;
+            margin-bottom: 28px;
+            font-weight: 600;
+            font-size: 1.6rem;
+            letter-spacing: -0.3px;
+            text-shadow: 0 0 32px rgba(94, 106, 210, 0.25), 0 1px 2px rgba(0, 0, 0, 0.5);
+            line-height: 1.3;
+        }
+
+        /* ============================================
+           上传区域 — 核心交互区
+           ============================================ */
+        .upload-area {
+            border: 2px dashed var(--border-accent);
+            background: rgba(10, 10, 14, 0.55);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-2xl) var(--spacing-lg);
+            text-align: center;
+            cursor: pointer;
+            transition:
+                border-color var(--duration-normal) var(--ease-expo-out),
+                background var(--duration-normal) var(--ease-expo-out),
+                box-shadow var(--duration-normal) var(--ease-expo-out),
+                transform var(--duration-fast) var(--ease-expo-out);
+            margin-bottom: 22px;
+            position: relative;
+            overflow: hidden;
+            isolation: isolate;
+            user-select: none;
+        }
+
+        /* 鼠标追踪聚光灯 — ::before */
+        .upload-area::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--duration-slow) var(--ease-expo-out);
+            background: radial-gradient(circle 300px at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
+                    rgba(94, 106, 210, 0.14) 0%,
+                    rgba(94, 106, 210, 0.04) 40%,
+                    transparent 70%);
+        }
+        .upload-area.spotlight-active::before {
+            opacity: 1;
+        }
+
+        /* 内发光微光 — ::after */
+        .upload-area::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity var(--duration-slow) var(--ease-expo-out);
+            box-shadow: inset 0 0 40px rgba(94, 106, 210, 0.12), inset 0 0 80px rgba(94, 106, 210, 0.04);
+            border-radius: var(--radius-xl);
+        }
+
+        .upload-area:hover {
+            border-color: var(--border-accent-hover);
+            background: rgba(14, 14, 18, 0.65);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(94, 106, 210, 0.06);
+        }
+        .upload-area:hover::after {
+            opacity: 1;
+        }
+        .upload-area.drag-over {
+            border-color: var(--accent-bright);
+            background: rgba(20, 20, 28, 0.72);
+            box-shadow:
+                0 8px 28px rgba(0, 0, 0, 0.35),
+                0 0 0 2px rgba(94, 106, 210, 0.15),
+                inset 0 0 50px rgba(94, 106, 210, 0.10);
+            transform: translateY(-1px);
+        }
+        .upload-area.drag-over::after {
+            opacity: 1;
+            box-shadow: inset 0 0 60px rgba(94, 106, 210, 0.18), inset 0 0 100px rgba(94, 106, 210, 0.06);
+        }
+
+        .upload-icon {
+            font-size: 46px;
+            margin-bottom: 14px;
+            position: relative;
+            z-index: 2;
+            filter: drop-shadow(0 0 14px rgba(94, 106, 210, 0.40));
+            transition: filter var(--duration-normal) var(--ease-expo-out), transform var(--duration-normal) var(--ease-expo-out);
+        }
+        .upload-area:hover .upload-icon {
+            filter: drop-shadow(0 0 22px rgba(94, 106, 210, 0.55));
+            transform: translateY(-2px);
+        }
+        .upload-area.drag-over .upload-icon {
+            filter: drop-shadow(0 0 28px rgba(94, 106, 210, 0.65));
+            transform: translateY(-3px) scale(1.04);
+        }
+
+        .upload-text {
+            color: var(--foreground-muted);
+            font-size: 15px;
+            position: relative;
+            z-index: 2;
+            transition: color var(--duration-normal) var(--ease-expo-out);
+            letter-spacing: -0.1px;
+        }
+        .upload-area:hover .upload-text {
+            color: #b8bcc6;
+        }
+        .upload-area.drag-over .upload-text {
+            color: #c8cbd6;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        /* ============================================
+           文件列表
+           ============================================ */
+        .file-list {
+            margin-top: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .file-item {
+            background: var(--surface);
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-xl);
+            padding: 18px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            transition:
+                transform var(--duration-normal) var(--ease-expo-out),
+                box-shadow var(--duration-normal) var(--ease-expo-out),
+                border-color var(--duration-normal) var(--ease-expo-out),
+                background var(--duration-normal) var(--ease-expo-out);
+            box-shadow:
+                0 1px 2px rgba(0, 0, 0, 0.18),
+                0 3px 6px rgba(0, 0, 0, 0.12);
+            position: relative;
+        }
+
+        .file-item:hover {
+            transform: translateY(-2px) scale(1.008);
+            border-color: var(--border-accent);
+            background: var(--surface-hover);
+            box-shadow:
+                0 1px 2px rgba(0, 0, 0, 0.22),
+                0 4px 10px rgba(0, 0, 0, 0.20),
+                0 10px 22px rgba(0, 0, 0, 0.16),
+                0 0 0 1px rgba(94, 106, 210, 0.06);
+        }
+
+        .file-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            margin-right: 18px;
+            min-width: 0;
+        }
+
+        .file-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: var(--spacing-xs);
+        }
+
+        .file-name {
+            font-weight: 600;
+            color: var(--foreground);
+            font-size: 15px;
+            letter-spacing: -0.2px;
+            word-break: break-all;
+            line-height: 1.3;
+        }
+
+        .file-size {
+            font-size: 12px;
+            color: var(--foreground-muted);
+            font-family: var(--font-mono);
+            letter-spacing: 0.4px;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* ============================================
+           状态徽章
+           ============================================ */
+        .status-badge {
+            padding: 7px 16px;
+            border-radius: var(--radius-full);
+            font-size: 12px;
+            font-weight: 600;
+            color: #f0f0f0;
+            min-width: 82px;
+            text-align: center;
+            letter-spacing: 0.4px;
+            line-height: 1;
+            white-space: nowrap;
+            flex-shrink: 0;
+            position: relative;
+            box-shadow:
+                0 2px 6px rgba(0, 0, 0, 0.25),
+                0 0 14px var(--status-glow, transparent);
+            transition: box-shadow var(--duration-normal) var(--ease-expo-out);
+        }
+
+        .status-uploading {
+            background: var(--status-uploading);
+            --status-glow: var(--status-uploading-glow);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 18px var(--status-uploading-glow);
+        }
+        .status-processing {
+            background: var(--status-processing);
+            --status-glow: var(--status-processing-glow);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 20px var(--status-processing-glow);
+            animation: statusPulse 2.4s ease-in-out infinite;
+        }
+        .status-completed {
+            background: var(--status-completed);
+            --status-glow: var(--status-completed-glow);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 16px var(--status-completed-glow);
+        }
+        .status-error {
+            background: var(--status-error);
+            --status-glow: var(--status-error-glow);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 16px var(--status-error-glow);
+        }
+
+        @keyframes statusPulse {
+            0%,
+            100% {
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 20px var(--status-processing-glow);
+            }
+            50% {
+                box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25), 0 0 32px var(--status-processing-glow);
+            }
+        }
+
+        /* ============================================
+           进度条
+           ============================================ */
+        .progress-wrapper {
+            margin-top: 8px;
+            display: none;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(0, 0, 0, 0.35);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: var(--radius-md);
+            transition: width 0.45s var(--ease-expo-out), background 0.4s var(--ease-expo-out);
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+        }
+
+        .progress-bar::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            right: 0;
+            background: linear-gradient(90deg,
+                    rgba(255, 255, 255, 0) 0%,
+                    rgba(255, 255, 255, 0.18) 50%,
+                    rgba(255, 255, 255, 0) 100%);
+            animation: shimmer 2s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        .progress-text {
+            font-size: 11px;
+            color: var(--foreground-muted);
+            margin-top: 5px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+            letter-spacing: 0.5px;
+        }
+
+        /* ============================================
+           日志详情
+           ============================================ */
+        .log-details {
+            margin-top: 14px;
+            font-size: 12px;
+            color: #c8cdd5;
+            background: rgba(10, 10, 14, 0.55);
+            border-radius: var(--radius-lg);
+            padding: 14px 16px;
+            border: 1px solid var(--border-default);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+            transition: border-color var(--duration-normal) var(--ease-expo-out);
+        }
+        .log-details[open] {
+            border-color: var(--border-accent);
+        }
+
+        .log-details summary {
+            cursor: pointer;
+            user-select: none;
+            color: #d8dbe2;
+            outline: none;
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            font-size: 12px;
+            letter-spacing: 0.2px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--border-default);
+            transition: color var(--duration-fast) var(--ease-expo-out);
+            list-style: none;
+        }
+        .log-details summary::-webkit-details-marker {
+            display: none;
+        }
+        .log-details summary::before {
+            content: "▸";
+            display: inline-block;
+            margin-right: 8px;
+            font-size: 10px;
+            color: var(--foreground-muted);
+            transition: transform var(--duration-fast) var(--ease-expo-out), color var(--duration-fast) var(--ease-expo-out);
+        }
+        .log-details[open] summary::before {
+            transform: rotate(90deg);
+            color: var(--accent-bright);
+        }
+        .log-details[open] summary {
+            margin-bottom: 4px;
+            color: #e8eaef;
+        }
+        .log-details summary:hover {
+            color: #b8c0d8;
+        }
+        .log-details summary:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 4px;
+            border-radius: var(--radius-sm);
+        }
+
+        /* 日志列表 */
+        .log-list {
+            margin: 8px 0 0 0;
+            padding: 0 0 0 20px;
+            list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        /* 时间线竖线 */
+        .log-list::before {
+            content: "";
+            position: absolute;
+            left: 7px;
+            top: 8px;
+            bottom: 8px;
+            width: 2px;
+            background: linear-gradient(180deg,
+                    rgba(94, 106, 210, 0.35),
+                    rgba(104, 114, 217, 0.25) 40%,
+                    rgba(74, 158, 123, 0.25) 70%,
+                    rgba(74, 158, 123, 0.35));
+            border-radius: 1px;
+        }
+
+        /* 自定义滚动条 */
+        .log-list::-webkit-scrollbar {
+            width: 5px;
+        }
+        .log-list::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 3px;
+        }
+        .log-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            transition: background var(--duration-fast) var(--ease-expo-out);
+        }
+        .log-list::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .log-list li {
+            margin: 0;
+            padding: 9px 10px;
+            line-height: 1.5;
+            display: flex;
+            align-items: center;
+            position: relative;
+            border-radius: var(--radius-sm);
+            transition: background var(--duration-fast) var(--ease-expo-out);
+            font-size: 12px;
+            animation: logFadeIn 0.35s var(--ease-expo-out) both;
+        }
+
+        @keyframes logFadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-6px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .log-list li:hover {
+            background: rgba(255, 255, 255, 0.025);
+        }
+
+        /* 时间线节点圆点 */
+        .log-list li::before {
+            content: "";
+            position: absolute;
+            left: -17px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            border: 2px solid #2a3040;
+            background: #1a1d28;
+            box-shadow: 0 0 0 3px rgba(10, 10, 14, 0.7);
+            z-index: 1;
+            transition: all var(--duration-normal) var(--ease-expo-out);
+        }
+
+        .log-done {
+            color: #c8e8d8;
+        }
+        .log-done::before {
+            background: var(--status-completed) !important;
+            border-color: var(--status-completed) !important;
+            box-shadow: 0 0 9px var(--status-completed-glow), 0 0 0 3px rgba(10, 10, 14, 0.7) !important;
+        }
+
+        .log-duration {
+            margin-left: auto;
+            font-size: 11px;
+            color: #a0b8e8;
+            background: rgba(94, 106, 210, 0.10);
+            border: 1px solid rgba(94, 106, 210, 0.22);
+            padding: 3px 10px;
+            border-radius: var(--radius-full);
+            white-space: nowrap;
+            font-weight: 500;
+            letter-spacing: 0.4px;
+            font-variant-numeric: tabular-nums;
+            font-family: var(--font-mono);
+            flex-shrink: 0;
+        }
+
+        .log-running {
+            color: #c0d2f0;
+            animation: pulseText 2.2s ease-in-out infinite;
+        }
+        .log-running::before {
+            background: var(--accent) !important;
+            border-color: var(--accent-bright) !important;
+            box-shadow: 0 0 10px var(--accent-glow-strong), 0 0 0 3px rgba(10, 10, 14, 0.7) !important;
+            animation: pulseNode 2.2s ease-in-out infinite !important;
+        }
+
+        @keyframes pulseText {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.65;
+            }
+        }
+        @keyframes pulseNode {
+            0%,
+            100% {
+                box-shadow: 0 0 10px var(--accent-glow-strong), 0 0 0 3px rgba(10, 10, 14, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 18px var(--accent-glow-strong), 0 0 0 3px rgba(10, 10, 14, 0.7);
+            }
+        }
+
+        /* ============================================
+           焦点样式（全局可访问性）
+           ============================================ */
+        .upload-area:focus-visible {
+            outline: 2px solid var(--accent-bright);
+            outline-offset: 3px;
+            border-radius: var(--radius-xl);
+        }
+        .file-item:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 3px;
+            border-radius: var(--radius-xl);
+        }
+        .status-badge:focus-visible {
+            outline: 2px solid var(--accent-bright);
+            outline-offset: 2px;
+        }
+
+        /* ============================================
+           减弱动效支持
+           ============================================ */
+        @media (prefers-reduced-motion: reduce) {
+            *,
+            *::before,
+            *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+            .bg-blob {
+                display: none;
+            }
+            .progress-bar::after {
+                animation: none;
+            }
+            .upload-area::before {
+                transition: none;
+            }
+            .log-list li {
+                animation: none;
+            }
+            .status-processing {
+                animation: none;
+            }
+            .log-running {
+                animation: none;
+            }
+            .log-running::before {
+                animation: none !important;
+            }
+        }
+
+        /* ============================================
+           响应式布局
+           ============================================ */
+        @media (max-width: 767px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 18px 14px;
+                border-radius: var(--radius-lg);
+                max-width: 100%;
+                margin-top: 4px;
+                margin-bottom: 16px;
+                backdrop-filter: blur(16px) saturate(120%);
+                -webkit-backdrop-filter: blur(16px) saturate(120%);
+            }
+            h1 {
+                font-size: 1.25rem;
+                margin-bottom: 18px;
+                letter-spacing: -0.2px;
+            }
+            .upload-area {
+                padding: 22px 14px;
+                border-radius: var(--radius-lg);
+            }
+            .upload-icon {
+                font-size: 34px;
+                margin-bottom: 10px;
+            }
+            .upload-text {
+                font-size: 13px;
+            }
+            .file-item {
+                padding: 14px;
+                flex-direction: column;
+                gap: 10px;
+                border-radius: var(--radius-lg);
+            }
+            .file-info {
+                margin-right: 0;
+            }
+            .file-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 4px;
+            }
+            .file-name {
+                font-size: 14px;
+            }
+            .status-badge {
+                align-self: flex-start;
+                font-size: 11px;
+                padding: 5px 12px;
+                min-width: 68px;
+            }
+            .log-details {
+                padding: 10px 12px;
+            }
+            .log-list {
+                max-height: 150px;
+                padding-left: 16px;
+            }
+            .log-list li {
+                font-size: 11px;
+                padding: 7px 8px;
+            }
+            .log-list li::before {
+                left: -14px;
+                width: 8px;
+                height: 8px;
+            }
+            .log-list::before {
+                left: 5px;
+            }
+            .bg-blob {
+                opacity: 0.15;
+                filter: blur(80px);
+            }
+            .bg-blob--1 {
+                width: 300px;
+                height: 300px;
+            }
+            .bg-blob--2 {
+                width: 260px;
+                height: 260px;
+            }
+            .bg-blob--3 {
+                width: 200px;
+                height: 200px;
+            }
+            .upload-area::before {
+                background: radial-gradient(circle 180px at var(--spotlight-x, 50%) var(--spotlight-y, 50%),
+                        rgba(94, 106, 210, 0.12) 0%,
+                        rgba(94, 106, 210, 0.03) 40%,
+                        transparent 70%);
+            }
+        }
+
+        @media (min-width: 768px) and (max-width: 1023px) {
+            body {
+                padding: 16px;
+            }
+            .container {
+                max-width: 92%;
+                padding: 24px 20px;
+            }
+            h1 {
+                font-size: 1.45rem;
+            }
+            .upload-area {
+                padding: 30px 20px;
+            }
+            .upload-icon {
+                font-size: 40px;
+            }
+            .bg-blob--1 {
+                width: 420px;
+                height: 420px;
+            }
+            .bg-blob--2 {
+                width: 360px;
+                height: 360px;
+            }
+            .bg-blob--3 {
+                width: 280px;
+                height: 280px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 动态 Blob 光斑（由 JS 创建） -->
+    <div class="bg-blob bg-blob--1" aria-hidden="true"></div>
+    <div class="bg-blob bg-blob--2" aria-hidden="true"></div>
+    <div class="bg-blob bg-blob--3" aria-hidden="true"></div>
+
+    <div class="container">
+        <h1>📄 知识库文件导入</h1>
+
+        <div class="upload-area" id="dropZone" onclick="document.getElementById('fileInput').click()" tabindex="0" role="button" aria-label="点击或拖拽文件到此处上传">
+            <div class="upload-icon">☁️</div>
+            <div class="upload-text">点击或拖拽文件到此处 (PDF / MD)</div>
+            <input type="file" id="fileInput" class="file-input" accept=".pdf,.md" aria-hidden="true">
+        </div>
+
+        <div id="fileList" class="file-list">
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        //  装饰性 Blob 元素（已通过 HTML 硬编码，此处作为备用确保存在）
+        //  若 HTML 中已存在则跳过创建
+        // ============================================
+        (function ensureBlobs() {
+            const existingBlobs = document.querySelectorAll('.bg-blob');
+            if (existingBlobs.length >= 3) return;
+            // 如果因某些原因缺失，动态补全
+            const fragment = document.createDocumentFragment();
+            for (let i = 1; i <= 3; i++) {
+                const blob = document.createElement('div');
+                blob.className = `bg-blob bg-blob--${i}`;
+                blob.setAttribute('aria-hidden', 'true');
+                fragment.appendChild(blob);
+            }
+            document.body.prepend(fragment);
+        })();
+
+        // ============================================
+        //  鼠标追踪聚光灯 — 上传区域
+        // ============================================
+        (function initSpotlight() {
+            const dropZone = document.getElementById('dropZone');
+
+            function updateSpotlight(e) {
+                const rect = dropZone.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                const px = (x / rect.width) * 100;
+                const py = (y / rect.height) * 100;
+                dropZone.style.setProperty('--spotlight-x', px + '%');
+                dropZone.style.setProperty('--spotlight-y', py + '%');
+            }
+
+            dropZone.addEventListener('mouseenter', () => {
+                dropZone.classList.add('spotlight-active');
+            });
+            dropZone.addEventListener('mousemove', (e) => {
+                updateSpotlight(e);
+            });
+            dropZone.addEventListener('mouseleave', () => {
+                dropZone.classList.remove('spotlight-active');
+            });
+
+            // 拖拽时也激活聚光灯
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('spotlight-active');
+                dropZone.classList.add('drag-over');
+                updateSpotlight(e);
+            });
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('spotlight-active');
+                dropZone.classList.remove('drag-over');
+            });
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('spotlight-active');
+                dropZone.classList.remove('drag-over');
+            });
+        })();
+
+        // ============================================
+        //  以下为原有业务逻辑（完整保留，仅样式引用方式微调）
+        // ============================================
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+
+        // 模拟后端API地址
+        const API_BASE = 'http://127.0.0.1:8000';
+
+        // 注意：dragover/dragleave/drop 的样式类已在 spotlight 初始化中处理，
+        // 这里不再重复设置内联样式（避免覆盖 CSS 类）
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        // drop 事件已在 spotlight 中绑定，此处补充文件处理
+        dropZone.addEventListener('drop', (e) => {
+            handleFiles(e.dataTransfer.files);
+        });
+
+        function handleFiles(files) {
+            Array.from(files).forEach(uploadFile);
+        }
+
+        function updateProgressUI(wrapper, percentage) {
+            const bar = wrapper.querySelector('.progress-bar');
+            const text = wrapper.querySelector('.progress-text');
+
+            const safePercentage = Math.min(Math.max(percentage, 0), 100);
+
+            bar.style.width = safePercentage + '%';
+            text.textContent = Math.round(safePercentage) + '%';
+
+            // 使用设计系统色值更新进度条颜色
+            if (safePercentage >= 100) {
+                bar.style.background = 'linear-gradient(90deg, #4a9e7b, #5dbd8a)';
+            } else if (safePercentage < 10) {
+                bar.style.background = 'linear-gradient(90deg, #b08a3a, #c9a24a)';
+            } else {
+                bar.style.background = 'linear-gradient(90deg, #5E6AD2, #6872D9)';
+            }
+        }
+
+        async function uploadFile(file) {
+            // === 核心逻辑：动态判断总节点数 ===
+            const isPDF = file.name.toLowerCase().endsWith('.pdf');
+            // PDF 需要 8 步（含上传），MD 跳过 pdf_to_md 需要 7 步
+            const totalNodes = isPDF ? 8 : 7;
+
+            const id = 'file-' + Math.random().toString(36).substr(2, 8);
+            const html = `
+            <div class="file-item" id="${id}">
+                <div class="file-info">
+                    <div class="file-header">
+                        <span class="file-name">${escapeHTML(file.name)}</span>
+                        <span class="file-size">${(file.size / 1024).toFixed(2)} KB</span>
+                    </div>
+                    <div class="progress-wrapper">
+                        <div class="progress-bar-container">
+                            <div class="progress-bar"></div>
+                        </div>
+                        <div class="progress-text">0%</div>
+                    </div>
+                    <details class="log-details" open>
+                        <summary>准备上传...</summary>
+                        <ul class="log-list"></ul>
+                    </details>
+                </div>
+                <div class="status-badge status-uploading">上传中...</div>
+            </div>
+        `;
+            fileList.insertAdjacentHTML('afterbegin', html);
+
+            const itemEl = document.getElementById(id);
+            const statusBadge = itemEl.querySelector('.status-badge');
+            const progressWrapper = itemEl.querySelector('.progress-wrapper');
+            const logListEl = itemEl.querySelector('.log-list');
+            const logSummary = itemEl.querySelector('.log-details summary');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                progressWrapper.style.display = 'block';
+
+                // 使用动态的 totalNodes 计算基础上传进度
+                const uploadPercentage = (1 / totalNodes) * 100;
+                updateProgressUI(progressWrapper, Math.min(uploadPercentage, 10));
+
+                const initialLog = document.createElement('li');
+                initialLog.textContent = "开始上传文件...";
+                initialLog.className = "log-running";
+                logListEl.appendChild(initialLog);
+                logSummary.textContent = '📋 运行日志 (上传中...)';
+
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+
+                const result = await response.json();
+                const taskId = result.task_id;
+
+                updateProgressUI(progressWrapper, uploadPercentage);
+                statusBadge.textContent = '处理中';
+                statusBadge.className = 'status-badge status-processing';
+
+                // 把专属的 totalNodes 传给轮询函数
+                pollStatus(taskId, itemEl, totalNodes);
+
+            } catch (error) {
+                console.error(error);
+                statusBadge.textContent = '上传失败';
+                statusBadge.className = 'status-badge status-error';
+                updateProgressUI(progressWrapper, 0);
+                logSummary.textContent = '📋 运行日志 (上传失败)';
+
+                const errLog = document.createElement('li');
+                errLog.textContent = "❌ 网络请求失败或服务器异常";
+                errLog.style.color = "#d49090";
+                logListEl.appendChild(errLog);
+            }
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function normalizeLogText(text) {
+            if (typeof text !== 'string') return String(text);
+            return text;
+        }
+
+        function formatDuration(seconds) {
+            if (seconds == null || isNaN(seconds)) return '';
+            if (seconds < 60) {
+                return seconds.toFixed(1) + 's';
+            }
+            const mins = Math.floor(seconds / 60);
+            const secs = (seconds % 60).toFixed(0);
+            return `${mins}m${secs}s`;
+        }
+
+        function renderLogsAndCalculateProgress(itemEl, doneList, runningList, totalNodes, durations) {
+            const logSummary = itemEl.querySelector('.log-details summary');
+            const logListEl = itemEl.querySelector('.log-list');
+
+            const done = Array.isArray(doneList) ? doneList : [];
+            const running = Array.isArray(runningList) ? runningList : [];
+            const durationMap = durations || {};
+
+            // === 进度计算逻辑 ===
+            let currentPercentage = (done.length / totalNodes) * 100;
+
+            if (running.length > 0) {
+                currentPercentage += (0.5 / totalNodes) * 100;
+            }
+
+            if (currentPercentage >= 100) {
+                currentPercentage = 95;
+            }
+
+            // 计算总耗时
+            let totalDuration = 0;
+            for (const key in durationMap) {
+                totalDuration += durationMap[key];
+            }
+            const totalDurationText = totalDuration > 0 ? ' | 总耗时: ' + formatDuration(totalDuration) : '';
+
+            // 更新日志文案
+            logSummary.textContent =
+                '📋 运行日志 (已完成: ' + done.length + ', 进行中: ' + running.length + ', 共 ' + totalNodes + ' 步' +
+                totalDurationText + ')';
+
+            logListEl.innerHTML = '';
+
+            for (const item of done) {
+                if (item === 'upload_file') continue;
+
+                const li = document.createElement('li');
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = normalizeLogText(item) + ' 节点执行完成';
+                li.appendChild(nameSpan);
+
+                // 添加耗时标签
+                if (durationMap[item] !== undefined && durationMap[item] !== null) {
+                    const durationSpan = document.createElement('span');
+                    durationSpan.className = 'log-duration';
+                    durationSpan.textContent = formatDuration(durationMap[item]);
+                    li.appendChild(durationSpan);
+                }
+
+                li.className = 'log-done';
+                logListEl.appendChild(li);
+            }
+
+            for (const item of running) {
+                const li = document.createElement('li');
+                li.textContent = '正在处理 ' + normalizeLogText(item) + ' 节点...';
+                li.className = 'log-running';
+                logListEl.appendChild(li);
+            }
+
+            logListEl.scrollTop = logListEl.scrollHeight;
+
+            return currentPercentage;
+        }
+
+        function pollStatus(taskId, itemEl, totalNodes) {
+            const statusBadge = itemEl.querySelector('.status-badge');
+            const progressWrapper = itemEl.querySelector('.progress-wrapper');
+            const logDetails = itemEl.querySelector('.log-details');
+            let stopped = false;
+
+            const interval = setInterval(async () => {
+                if (stopped) return;
+
+                try {
+                    const res = await fetch(`${API_BASE}/status/${taskId}`);
+                    if (!res.ok) throw new Error('Status request failed');
+
+                    const data = await res.json();
+
+                    if (stopped) return;
+
+                    // 传入 totalNodes 继续计算
+                    const calculatedPercentage = renderLogsAndCalculateProgress(itemEl, data.done_list, data
+                        .running_list, totalNodes, data.durations);
+
+                    if (data.status === 'completed') {
+                        stopped = true;
+                        clearInterval(interval);
+                        statusBadge.textContent = '已完成';
+                        statusBadge.className = 'status-badge status-completed';
+                        updateProgressUI(progressWrapper, 100);
+
+                        // 更新 summary
+                        const logSummary = itemEl.querySelector('.log-details summary');
+                        logSummary.textContent = '📋 运行日志 (全部完成 ✓)';
+
+                        setTimeout(() => {
+                            logDetails.open = false;
+                        }, 1200);
+
+                    } else if (data.status === 'failed') {
+                        stopped = true;
+                        clearInterval(interval);
+                        statusBadge.textContent = '失败';
+                        statusBadge.className = 'status-badge status-error';
+
+                        const logListEl = itemEl.querySelector('.log-list');
+                        const errLog = document.createElement('li');
+                        errLog.textContent = "❌ 工作流执行失败中止";
+                        errLog.style.color = "#d49090";
+                        logListEl.appendChild(errLog);
+
+                        const logSummary = itemEl.querySelector('.log-details summary');
+                        logSummary.textContent = '📋 运行日志 (执行失败)';
+
+                    } else if (data.status === 'processing') {
+                        updateProgressUI(progressWrapper, calculatedPercentage);
+                    }
+                } catch (e) {
+                    console.error('Polling error', e);
+                }
+            }, 1500);
+        }
+    </script>
+
+</body>
+</html>
