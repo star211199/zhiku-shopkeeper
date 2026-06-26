@@ -66,6 +66,9 @@ ITEM_NAME_SYSTEM_EXTRACT_TEMPLATE = """
 #     "rewritten_query": "改写后的问题"
 # }}"""
 
+HYDE_SYSTEM_PROMPT_TEMPLATE = """
+您是一位{item_names}的技术文档领域的专家，主要擅长编写技术文档、操作手册、文档规格说明
+"""
 
 HYDE_USER_PROMPT_TEMPLATE = """
 请根据用户的问题，编写一段技术文档片段作为回答参考。

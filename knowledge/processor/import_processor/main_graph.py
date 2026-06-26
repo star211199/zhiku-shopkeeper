@@ -70,7 +70,7 @@ import_app = import_graph()
 if __name__ == "__main__":
     # 1. 创建graph
     state = {
-        "import_file_path": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\input_dir\H3C LA2608室内无线网关 用户手册-6W100-整本手册.pdf",
+        "import_file_path": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\input_dir\华为擎云 G540 用户指南-(YTFZ,Windows11_03,zh-cn).pdf",
         "file_dir": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\output_dir"
     }
     # 执行
