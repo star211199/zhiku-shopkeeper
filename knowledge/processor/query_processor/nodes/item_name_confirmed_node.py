@@ -84,7 +84,7 @@ class _ItemNameExtractor:
         else:
             rewritten_query = original_rewritten_query.strip()
 
-        print(f"item_names:{item_names},rewritten_query:{rewritten_query}")
+        # print(f"item_names:{item_names},rewritten_query:{rewritten_query}")
         # 3. 返回Dict
         return {"item_names": item_names, "rewritten_query": rewritten_query}
 
@@ -96,14 +96,14 @@ class _ItemNameAligner:
     def search_and_align(self,item_names:List[str]):
         # 1. 混合检索向量数据库
         search_result = self._search_vector(item_names)
-        print(search_result)
+        # print(search_result)
         # 2. 判断检索到的结构，如果为空，则表示confirmed和options都没有
         if not search_result:
             return [],[]
         # 2. 根据混合向量检索到的结果做对齐【confirmed/options】
         confirmed,options = self._align(search_result)
-        print(f"confirmed:{confirmed}")
-        print(f"options:{options}")
+        # print(f"confirmed:{confirmed}")
+        # print(f"options:{options}")
 
         # 3. 分数差异化过滤
         # 3.1如果confirmed的长度大于1,则进行分数差异化过滤
@@ -163,7 +163,7 @@ class _ItemNameAligner:
                 limit=self._config.embedding_search_limit,
                 output_fields=["item_name"]
             )
-            print(milvus_search_results)
+            # print(milvus_search_results)
             # 组装匹配结果
             matches = []
             for m in milvus_search_results[0]:

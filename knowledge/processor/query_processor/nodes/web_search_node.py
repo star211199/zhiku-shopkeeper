@@ -13,7 +13,7 @@ class WebSearchNode(BaseNode):
         rewritten_query,item_names = self._validate(state)
         # 2. 调用mcp工具进行网络检索
         execute_tool_result = asyncio.run(self.mcp_web_search(rewritten_query))
-        print(execute_tool_result)
+        # print(execute_tool_result)
         # 3. 对mcp检索的结果进行格式化
         # 3.1 获取查询结果中的text，这其实就是一个json字符串
         result_text = execute_tool_result.content[0].text
@@ -37,9 +37,9 @@ class WebSearchNode(BaseNode):
             })
 
         # 4. 将web_search_docs存入state中
-        state["web_search_docs"] = web_search_docs
+        # state["web_search_docs"] = web_search_docs
 
-        return state
+        return {"web_search_docs":web_search_docs} # type:ignore
 
     async def mcp_web_search(self, rewritten_query: str):
         # 1. 创建MCP客户端

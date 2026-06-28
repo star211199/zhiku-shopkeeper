@@ -57,11 +57,11 @@ class HydeSearchNode(BaseNode):
             limit=self.config.hyde_search_limit,
             output_fields=["item_name", "title", "content"]
         )
-        print(hyde_search_result)
+        # print(hyde_search_result)
         # 9. 将hyde检索的结果存入state,返回
-        state["hyde_embedding_chunks"] = hyde_search_result[0]
+        # state["hyde_embedding_chunks"] = hyde_search_result[0]
 
-        return state
+        return {"hyde_embedding_chunks":hyde_search_result[0]} # type:ignore
 
     def _validate(self, state) -> Tuple[str, List[str]]:
         # 1. 获取rewritten_query,item_names

@@ -1,4 +1,4 @@
-from typing import Dict, List
+from typing import Dict, List, Any
 from collections import defaultdict
 
 
@@ -35,11 +35,11 @@ _NODE_NAME_TO_CN: Dict[str, str] = {
     # --- Query 流程节点（kb/query_process/main_graph.py）---
     "item_name_confirmed_node": "确认问题产品",
     "answer_output_node": "生成答案",
-    "reranker_node": "重排序",
+    "rerank_node": "重排序",
     "rrf_merge_node": "倒排融合",
-    "web_mcp_search_node": "网络搜索",
-    "hybrid_vector_search_node": "切片搜索",
-    "hyde_vector_search_node": "切片搜索(假设性文档)"
+    "web_search_node": "网络搜索",
+    "vector_search_node": "切片搜索",
+    "hyde_search_node": "切片搜索(假设性文档)"
 }
 
 
@@ -119,7 +119,7 @@ def get_node_durations(task_id: str) -> Dict[str, float]:
     """获取所有节点的耗时"""
     return dict(_tasks_duration.get(task_id, {}))
 
-def get_task_info(task_id: str) -> Dict[str, any]:
+def get_task_info(task_id: str) -> Dict[str, Any]:
     """
     获取任务的全局信息（状态 + 运行中节点 + 已完成节点）
     :param task_id: 任务ID

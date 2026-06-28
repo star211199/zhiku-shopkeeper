@@ -1,6 +1,8 @@
 import uvicorn
 from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+
+from knowledge.core.deps import get_file_process_service
 from knowledge.schema.upload_schema import UploadResponse, TaskStatusResponse
 from knowledge.core.paths import get_front_page_dir
 from fastapi import BackgroundTasks
@@ -19,7 +21,7 @@ def register_router(app: FastAPI):
     @app.post("/upload", response_model=UploadResponse)
     def upload_file(file: UploadFile,
                     background_tasks: BackgroundTasks,
-                    file_process_service: FileProcessService = Depends(FileProcessService)):  # 相当于Java中的依赖注入，不用频繁的地创对象
+                    file_process_service: FileProcessService = Depends(get_file_process_service)):  # 相当于Java中的依赖注入，不用频繁的地创对象
         # 将上传的文件进行处理(保存)
         import_file_path, file_dir, task_id = file_process_service.process_upload_file(file)
         # print(import_file_path)

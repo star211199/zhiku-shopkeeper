@@ -7,6 +7,7 @@ from typing import TypeVar, Optional
 import logging
 from knowledge.processor.query_processor.config import QueryConfig, get_config
 from knowledge.processor.query_processor.exceptions import QueryProcessError
+from knowledge.utils.sse_util import push_sse_event, SSEEvent
 from knowledge.utils.task_util import add_running_task, add_done_task, get_task_status, get_running_task_list, \
     get_done_task_list
 
@@ -72,15 +73,15 @@ class BaseNode(ABC):
             if task_id:
                 add_running_task(task_id, self.name)  # 当前正准备执行的节点加入
                 # 如果是流式
-                # if is_stream:
-                #     self._push_progress(task_id)
+                if is_stream:
+                    self._push_progress(task_id)
 
             result = self.process(state)
             if task_id:
                 add_done_task(task_id, self.name)  # 当前正准备执行的节点加入
                 # 如果是流式
-                # if is_stream:
-                #     self._push_progress(task_id)
+                if is_stream:
+                    self._push_progress(task_id)
 
             self.logger.info(f"--- {self.name} 完成 ---")
             return result
@@ -128,4 +129,13 @@ class BaseNode(ABC):
             level=level,
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
+        )
+
+    def _push_progress(self, task_id:str):
+        push_sse_event(
+            task_id,SSEEvent.PROGRESS,{
+                "status":get_task_status(task_id),
+                "done_list":get_done_task_list(task_id),
+                "running_list":get_running_task_list(task_id),
+            }
         )

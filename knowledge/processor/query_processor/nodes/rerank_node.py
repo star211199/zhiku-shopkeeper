@@ -116,7 +116,7 @@ class RerankNode(BaseNode):
                 max_score_gap = score_gap
                 # 记录断崖点
                 cut_index = i
-                print(f"找到了断崖点,{i},分差是：{max_score_gap}")
+                # print(f"找到了断崖点,{i},分差是：{max_score_gap}")
 
         # 3.7 对sorted_score进行截取,截取点cut_index
         cut_index = max(lower_bound,cut_index)

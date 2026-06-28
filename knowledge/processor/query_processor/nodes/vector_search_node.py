@@ -47,11 +47,11 @@ class VectorSearchNode(BaseNode):
             limit=self.config.embedding_search_limit,
             output_fields=["item_name","title","content"]
         )
-        print(hybrid_search_results)
+        # print(hybrid_search_results)
         # 7. 返回结果
-        state["embedding_chunks"] = hybrid_search_results[0]
+        # state["embedding_chunks"] = hybrid_search_results[0]
 
-        return state
+        return {"embedding_chunks":hybrid_search_results[0]}
 
     def _validate(self, state) -> Tuple[str, List[str]]:
         # 1. 获取rewritten_query,item_names

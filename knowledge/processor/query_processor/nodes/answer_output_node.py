@@ -31,9 +31,10 @@ class AnswerOutputNode(BaseNode):
             # 4.1 表示在答案输出节点执行之前，没有生成答案，那么就需要在答案输出节点中调用大模型来生成答案
             # 4.1.1 组装提示词
             prompt = self._build_answer_prompt(state, self.config.max_context_chars)
+            print(f"提示词:{prompt}")
             # 4.1.2 调用大模型生成答案
             llm_answer = self._generate_answer(prompt, state)
-            state["answer"] = answer
+            state["answer"] = llm_answer
             # 4.1.3 流式输出完之后，最终要告诉前端 SSE通道关闭了
             if is_stream:
                 push_sse_event(task_id=task_id, event=SSEEvent.FINAL, data={})
@@ -103,24 +104,24 @@ class AnswerOutputNode(BaseNode):
                 if field_value:
                     metadata_content.append(template.format(field_value))
 
-                # 获取当前文档的分数，保留6为小数
-                score = float(reranked_doc.get("score"))
-                metadata_content.append(f"[score={score:.6f}]")
-                # 拼接当前文档的内容
-                content = reranked_doc.get("content", "")
-                # 每段的内容
-                format_chunk = " ".join(metadata_content) + "\n" + content
+            # 获取当前文档的分数，保留6为小数
+            score = float(reranked_doc.get("score"))
+            metadata_content.append(f"[score={score:.6f}]")
+            # 拼接当前文档的内容
+            content = reranked_doc.get("content", "")
+            # 每段的内容
+            format_chunk = " ".join(metadata_content) + "\n" + content
 
-                # 段与段之间的拼接符长度为2
-                spec_len = 2 if final_context else 0
-                # 判断已使用长度 + 当前段落拼接需要的分隔符长度 + 当前段落的长度  是否大于最大长度
-                chunk_length = spec_len + len(format_chunk)
-                if usage_chars + chunk_length > max_context_chars:
-                    break
-                # 当前段落拼接到final_context
-                final_context.append(format_chunk)
-                # 更新已使用的长度
-                usage_chars += chunk_length
+            # 段与段之间的拼接符长度为2
+            spec_len = 2 if final_context else 0
+            # 判断已使用长度 + 当前段落拼接需要的分隔符长度 + 当前段落的长度  是否大于最大长度
+            chunk_length = spec_len + len(format_chunk)
+            if usage_chars + chunk_length > max_context_chars:
+                break
+            # 当前段落拼接到final_context
+            final_context.append(format_chunk)
+            # 更新已使用的长度
+            usage_chars += chunk_length
 
         return "\n\n".join(final_context), usage_chars
 
@@ -176,17 +177,17 @@ class AnswerOutputNode(BaseNode):
         save_chat_message(
             session_id=state.get("session_id"),
             role="user",
-            text=state.get("original_query"),
-            rewritten_query=state.get("rewritten_query"),
-            item_names=state.get("item_names")
+            text=state.get("original_query",""),
+            rewritten_query=state.get("rewritten_query",""),
+            item_names=state.get("item_names",[])
         )
 
         # 2. 保存AI的对话内容
         save_chat_message(
             session_id=state.get("session_id"),
             role="assistant",
-            text=state.get("answer"),
-            item_names=state.get("item_names")
+            text=state.get("answer",""),
+            item_names=state.get("item_names",[])
         )
 
     def _llm_stream(self, prompt, llm_client, state) -> str:
@@ -196,7 +197,7 @@ class AnswerOutputNode(BaseNode):
             # 1.1 每得到一个内容快，将其推送到SSE队列中
             content = getattr(chunk, "content", "")
             if content:
-                push_sse_event(task_id=state.get("task_id"), event=SSEEvent.DELTA, data={"answer": content})
+                push_sse_event(task_id=state.get("task_id"), event=SSEEvent.DELTA, data={"delta": content})
             # 1.2 将每个chunk的内容拼接到最终的答案返回出来
             final_answer += content
         return final_answer
