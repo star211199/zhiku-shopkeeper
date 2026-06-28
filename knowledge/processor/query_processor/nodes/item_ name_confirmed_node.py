@@ -11,6 +11,7 @@ from knowledge.utils.client.ai_clients import AIClients
 from knowledge.utils.client.storage_clients import StorageClients
 from knowledge.utils.embedding_util import generate_bge_m3_hybrid_vectors
 from knowledge.utils.milvus_util import create_hybrid_search_requests, execute_hybrid_search_query
+from knowledge.utils.mongo_history_util import get_recent_messages
 
 
 class _ItemNameExtractor:
@@ -265,8 +266,21 @@ class ItemNameConfirmedNode(BaseNode):
     def process(self, state: QueryGraphState) -> QueryGraphState:
         # 1. 获取用户的原始问题
         original_query = state["original_query"]
-        # TODO 2. 获取历史的对话(mongodb)
+        # 2. 获取历史的对话(mongodb)
+        # 获取session_id
+        session_id = state.get("session_id","")
+        # 获取历史会话结果
+        history_messages = get_recent_messages(
+            session_id=session_id
+        )
+        # 将历史会话信息存入state
+        state["history"] = history_messages
         formatted_history_str = ""
+        for msg in history_messages:
+            role=msg.get("role")
+            content = msg.get("text","")
+            formatted_history_str += f"{role}:{content}\n"
+
         # 3. 获取LLM结果，将问题交给大模型，提取商品名
         llm_result:Dict[str,Any] = self._extractor.extract_item_name(original_query, formatted_history_str)
         # 4. 根据item_names做判断，进行商品名的对齐
