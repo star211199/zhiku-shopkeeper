@@ -1,10 +1,19 @@
+import os
+
+from dotenv import load_dotenv
 from pymilvus import MilvusClient
 
-# 1. 获取 Milvus 客户端
-milvus_client = MilvusClient(uri="http://127.0.0.1:19530")
+load_dotenv()
+
+# 1. 获取 Milvus 客户端（连接串从环境变量读取，禁止硬编码内网地址）
+milvus_uri = os.getenv("MILVUS_URL")
+if not milvus_uri:
+    raise EnvironmentError("缺少必需的环境变量: MILVUS_URL")
+milvus_client = MilvusClient(uri=milvus_uri)
+
 # 2. 稠密向量检索
 # 实际业务当中，是将提取的商品名通过bge3模型转化成稠密向量
-dense_vector = [0.123, -0.456, 0.789, ...]  # 1024维
+dense_vector = [0.123, -0.456, 0.789]  # 示例值，真实场景为 1024 维
 results = milvus_client.search(
     collection_name="kb_chunks",  # 向量数据表
     data=[dense_vector],  # 查询的向量
@@ -30,4 +39,3 @@ results = milvus_client.search(
     limit=5,
     output_fields=["content", "item_name"]
 )
-
