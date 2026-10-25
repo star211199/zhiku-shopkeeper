@@ -1,5 +1,7 @@
 minio
 langchain-openai
+langchain-core
+langchain-text-splitters
 langgraph
 grandalf
 pymilvus[model]
@@ -7,3 +9,12 @@ pymilvus
 sentence-transformers
 pymongo
 openai-agents
+fastapi
+uvicorn
+python-dotenv
+requests
+starlette
+pydantic
+openai
+transformers
+torch

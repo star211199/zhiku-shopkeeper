@@ -14,16 +14,20 @@ class RerankNode(BaseNode):
         user_query = state.get("rewritten_query")
         # 2.  对rrf合并的结果、以及web检索的结果进行规整化
         # 2.1 获取rrf合并的结果
-        rrf_docs = state.get("rrf_chunks")
+        rrf_docs = state.get("rrf_chunks") or []
         # 2.2 获取web检索的结果
-        web_search_docs = state.get("web_search_docs")
+        web_search_docs = state.get("web_search_docs") or []
         # 2.3 对检索结果的格式规整化，并将rrf的结果和web检索的结果合成一个列表
         final_docs = self._format_rrf_docs(rrf_docs)
         final_docs.extend(self._format_web_docs(web_search_docs))
         # 2.4 调用rerank模型进行计算文档得分
         doc_score = self._refine_rerank(user_query,final_docs)
         # 2.5 按照分数从高到低进行排序
-        sorted_doc_score = sorted(doc_score, key=lambda x: x["score"], reverse=True)
+        sorted_doc_score = sorted(
+            doc_score,
+            key=lambda x: x["score"] if x.get("score") is not None else float("-inf"),
+            reverse=True,
+        )
         # 3. 动态截断，断崖检测
         reranked_docs = self._cliff_cutoff(sorted_doc_score,self.config.rerank_min_top_k,self.config.rerank_max_top_k,self.config.rerank_gap_abs)
         state["reranked_docs"]=reranked_docs
@@ -74,13 +78,14 @@ class RerankNode(BaseNode):
         return 1.0 / (1.0 + math.exp(-score))
 
     def _refine_rerank(self, user_query:str, final_docs:List[Dict[str,Any]])-> List[Dict[str,Any]]:
+        """将问题和检索的结果构建一个Q-D对，然后交给重排序模型按照相关性打分"""
         # 1. 构建Q-D对
         quest_document_pairs = [(user_query, doc.get("content")) for doc in final_docs]
         # 2. 创建Rerank模型对象
         try:
             rerank_client = AIClients.get_bge_m3_rerank_client()
         except Exception as e:
-            self.logger.warn(f"获取Rerank模型对象失败,{e}")
+            self.logger.warning(f"获取Rerank模型对象失败,{e}")
             return [{**doc, "score": None} for doc in final_docs]
 
         # 3. 调用模型进行得分计算
@@ -88,7 +93,7 @@ class RerankNode(BaseNode):
             scores = rerank_client.compute_score(quest_document_pairs)
             return [{**doc,"score":self._sigmoid(score)} for doc,score in zip(final_docs, scores)]
         except Exception as e:
-            self.logger.warn(f"调用Rerank模型对象失败,{e}")
+            self.logger.warning(f"调用Rerank模型对象失败,{e}")
             return [{**doc, "score": None} for doc in final_docs]
 
     def _cliff_cutoff(self, sorted_doc_score: List[Dict[str,Any]], rerank_min_top_k:int, rerank_max_top_k:int, rerank_gap_abs:float)-> List[Dict[str,Any]]:

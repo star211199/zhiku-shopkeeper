@@ -11,14 +11,22 @@ from knowledge.utils.client.ai_clients import AIClients
 from knowledge.utils.client.storage_clients import StorageClients
 from knowledge.utils.embedding_util import generate_bge_m3_hybrid_vectors
 
-
+"""
+item_name_recognition_node节点的实现：
+1、参数校验：
+2、准备给LLM的上下文，组装提示词，使用LLM提取商品名
+3、将商品名向量化
+4、将商品名存入向量数据库当中
+5、将商品名存到chunks当中
+6、备份chunks，便于后续但节点测试
+"""
 class ItemNameRecognitionNode(BaseNode):
     """使用大模型提取商品名，并存储到向量数据库当中"""
-    name = "item_name_recognition"
+    name = "item_name_recognition_node"
 
     def process(self, state: ImportGraphState) -> ImportGraphState:
-        # 1. 参数的校验
-        file_title,chunks,item_name_chunk_k,item_name_chunk_size = self._validate_state(state)
+        # 1. 参数的校验,item_name_chunk_k:商品名识别时使用的切片数量,item_name_chunk_size:商品名识别时使用的切片内容长度
+        file_title, chunks, item_name_chunk_k, item_name_chunk_size = self._validate_state(state)
         # print(f"file_title:{file_title}")
         # print(f"chunks:{chunks}")
         # print(f"item_name_chunk_k:{item_name_chunk_k}")
@@ -26,44 +34,44 @@ class ItemNameRecognitionNode(BaseNode):
 
         # 2. 调用LLM提取文档的商品名
         # 2.1 准备给LLM的上下文
-        context = self._prepare_item_name_recognition_context(chunks,item_name_chunk_k,item_name_chunk_size)
+        context = self._prepare_item_name_recognition_context(chunks, item_name_chunk_k, item_name_chunk_size)
         # 2.2 使用LLM提取商品名
-        item_name = self._recognition_item_name(context,file_title)
+        item_name = self._recognition_item_name(context, file_title)
         # print(f"item_name:{item_name}")
 
         # 3. 将商品名向量化
         hybrid_vectors = self._embedding_item_name(item_name)
-        for k,v in hybrid_vectors.items():
-            print(f"{k}: {v}")
+        # for k, v in hybrid_vectors.items():
+        #     print(f"{k}: {v}")
+
         # 4. 将商品名存入向量数据库
-        self._insert_to_milvus(item_name,hybrid_vectors)
+        self._insert_to_milvus(item_name, hybrid_vectors)
         # 5. 将商品名写回到chunks里面
         for chunk in chunks:
-            if not isinstance(chunk,dict):
+            if not isinstance(chunk, dict):
                 continue
             chunk["item_name"] = item_name
 
         state["item_name"] = item_name
         state["chunks"] = chunks
         # 6. 为了方便后续的测试，再次备份chunks
-        self._backup_chunks(chunks,state)
+        self._backup_chunks(chunks, state)
 
         return state
 
-
-    def _validate_state(self, state:ImportGraphState) -> Tuple[str, list,int,int]:
+    def _validate_state(self, state: ImportGraphState) -> Tuple[str, list, int, int]:
         # 1. 获取file_title，作为兜底使用
-        file_title = state.get("file_title","")
+        file_title = state.get("file_title", "")
         # 2. 校验file_title是否为空
         if not file_title:
             self.logger.error("file_title不能够为空")
-            raise StateFieldError(node_name=self.name, field_name="file_title",expected_type=str)
+            raise StateFieldError(node_name=self.name, field_name="file_title", expected_type=str)
         # 3. 获取chunks,也就是上一步拆分之后的结果，作为上下文让LLM进行商品名的提取
-        chunks = state.get("chunks",[])
+        chunks = state.get("chunks", [])
         # 4. 判断chunks是否为空，且类型是否为list
-        if not chunks or not isinstance(chunks,list):
+        if not chunks or not isinstance(chunks, list):
             self.logger.error("chunks不能为空")
-            raise StateFieldError(node_name=self.name, field_name="chunks",expected_type=list)
+            raise StateFieldError(node_name=self.name, field_name="chunks", expected_type=list)
         # 5. 从config中获取item_name_chunk_k和item_name_chunk_size
         item_name_chunk_k = self.config.item_name_chunk_k
         item_name_chunk_size = self.config.item_name_chunk_size
@@ -74,21 +82,22 @@ class ItemNameRecognitionNode(BaseNode):
         if not item_name_chunk_size or item_name_chunk_size <= 0:
             raise ConfigurationError(node_name=self.name, message="item_name_chunk_size must be greater than 0")
 
-        return file_title,chunks,item_name_chunk_k,item_name_chunk_size
+        return file_title, chunks, item_name_chunk_k, item_name_chunk_size
 
-    def _prepare_item_name_recognition_context(self, chunks:list[dict[str,Any]], item_name_chunk_k:int, item_name_chunk_size:int) -> str:
+    def _prepare_item_name_recognition_context(self, chunks: list[dict[str, Any]], item_name_chunk_k: int,
+                                               item_name_chunk_size: int) -> str:
         # 定义容器存储每个chunk的内容
         final_context = []
         # 定义一个统计最终上下文长度的变量
         total_length = 0
         # 遍历chunks
-        for index,chunk in enumerate(chunks[:item_name_chunk_k]):
+        for index, chunk in enumerate(chunks[:item_name_chunk_k]):
             # 判断chunk是否是dict类型
-            if not isinstance(chunk,dict):
+            if not isinstance(chunk, dict):
                 continue
             # 获取content
-            content = chunk.get("content","")
-            context = f"【切片】-{index+1}-{content}"
+            content = chunk.get("content", "")
+            context = f"【切片】-{index + 1}-{content}"
             final_context.append(context)
             total_length += len(content)
             # 判断total_length的长度是否超过item_name_chunk_size
@@ -97,7 +106,7 @@ class ItemNameRecognitionNode(BaseNode):
 
         return "\n".join(final_context)
 
-    def _recognition_item_name(self, context:str, file_title:str) -> str:
+    def _recognition_item_name(self, context: str, file_title: str) -> str:
         # 1. 获取大模型
         try:
             llm_client = AIClients.get_llm_client(False)
@@ -109,7 +118,7 @@ class ItemNameRecognitionNode(BaseNode):
         system_prompt = ITEM_NAME_SYSTEM_PROMPT
         system_message = SystemMessage(content=system_prompt)
 
-        user_prompt = ITEM_NAME_USER_PROMPT_TEMPLATE.format(file_title=file_title,context=context)
+        user_prompt = ITEM_NAME_USER_PROMPT_TEMPLATE.format(file_title=file_title, context=context)
         human_message = HumanMessage(content=user_prompt)
 
         # 3. 调用大模型获取商品名
@@ -130,7 +139,7 @@ class ItemNameRecognitionNode(BaseNode):
 
         return item_name
 
-    def _embedding_item_name(self, item_name:str) -> Dict[list,list]:
+    def _embedding_item_name(self, item_name: str) -> Dict[list, list]:
         # 1. 创建embedding_client
         try:
             embedding_client = AIClients.get_bge_m3_client()
@@ -138,10 +147,10 @@ class ItemNameRecognitionNode(BaseNode):
             self.logger.warning(f"获取嵌入模型失败,{e}")
             return {}
         # 2. 调用嵌入模型进行向量嵌入
-        hybrid_vectors = generate_bge_m3_hybrid_vectors(embedding_client,[item_name])
+        hybrid_vectors = generate_bge_m3_hybrid_vectors(embedding_client, [item_name])
         return hybrid_vectors
 
-    def _insert_to_milvus(self, item_name:str, hybrid_vectors:dict) -> None:
+    def _insert_to_milvus(self, item_name: str, hybrid_vectors: dict) -> None:
         # 创建Milvus客户端
         try:
             milvus_client = StorageClients.get_milvus_client()
@@ -154,7 +163,7 @@ class ItemNameRecognitionNode(BaseNode):
             # 2.1 创建表
             # 2.1.1 创建约束schema
             schema = milvus_client.create_schema()
-            schema.add_field( # 设置自增主键
+            schema.add_field(  # 设置自增主键
                 field_name="pk",
                 datatype=DataType.INT64,
                 auto_id=True,
@@ -213,15 +222,15 @@ class ItemNameRecognitionNode(BaseNode):
         milvus_client.insert(
             collection_name=collection_name,
             data=insert_data,
-            timeout =30
+            timeout=30
         )
 
-    def _backup_chunks(self, chunks:List[Dict[str,Any]], state:ImportGraphState):
+    def _backup_chunks(self, chunks: List[Dict[str, Any]], state: ImportGraphState):
         # 1. 指定备份文件的路径
         # 1.1 获取文件输出的目录
-        md_path = state.get("md_path","")
+        md_path = state.get("md_path", "")
         md_path_obj = Path(md_path)
-        file_dir = state.get("file_dir","")
+        file_dir = state.get("file_dir", "")
         file_dir_obj = Path(file_dir)
         backup_dir = file_dir_obj / md_path_obj.stem
         # 1.2 判断该目录是否真实存在，如果不存在则创建目录
@@ -240,14 +249,14 @@ if __name__ == "__main__":
     node = ItemNameRecognitionNode()
 
     json_path = r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\output_dir\万用表RS-12的使用_new\chunks.json"
-    with open(json_path,mode="r",encoding="utf-8") as f:
+    with open(json_path, mode="r", encoding="utf-8") as f:
         chunks = json.loads(f.read())
 
     state = {
         "md_path": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\output_dir\万用表RS-12的使用\万用表RS-12的使用.md",
         "file_dir": r"D:\AtGuiGu_Java+AI\code\python_workspace\zhiku-shopkeeper\knowledge\processor\import_processor\output_dir",
-        "file_title":"万用表RS-12的使用",
-        "chunks":chunks,
+        "file_title": "万用表RS-12的使用",
+        "chunks": chunks,
     }
 
     node(state=state)

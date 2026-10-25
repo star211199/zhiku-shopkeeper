@@ -2,6 +2,7 @@
 
 定义统一的节点接口规范，提供通用功能。
 """
+import sys
 from abc import ABC, abstractmethod
 from typing import TypeVar, Optional
 import logging
@@ -119,18 +120,6 @@ class BaseNode(ABC):
             log_msg += f" {message}"
         self.logger.info(log_msg)
 
-    def setup_logging(level: int = logging.INFO):
-        """配置查询流程日志。
-
-        Args:
-            level: 日志级别，默认 INFO。
-        """
-        logging.basicConfig(
-            level=level,
-            format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-
     def _push_progress(self, task_id:str):
         push_sse_event(
             task_id,SSEEvent.PROGRESS,{
@@ -139,3 +128,55 @@ class BaseNode(ABC):
                 "running_list":get_running_task_list(task_id),
             }
         )
+
+    # def setup_logging(level: int = logging.INFO):
+    #     """配置查询流程日志。
+    #
+    #     Args:
+    #         level: 日志级别，默认 INFO。
+    #     """
+    #     logging.basicConfig(
+    #         level=level,
+    #         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    #         datefmt='%Y-%m-%d %H:%M:%S'
+    #     )
+
+    def setup_logging(level: int = logging.INFO):
+        """配置日志（带颜色输出）"""
+        # 清除现有handler
+        logging.root.handlers.clear()
+
+        # 创建handler
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(ColoredFormatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        ))
+
+        # 配置日志
+        logging.root.addHandler(handler)
+        logging.root.setLevel(level)
+
+        """
+        🔵 DEBUG - 青色
+        🟢 INFO - 绿色
+        🟡 WARNING - 黄色
+        🔴 ERROR - 红色
+        🟣 CRITICAL - 紫色
+        """
+
+class ColoredFormatter(logging.Formatter):
+    COLORS = {
+        'DEBUG': '\033[36m',
+        'INFO': '\033[32m',
+        'WARNING': '\033[33m',
+        'ERROR': '\033[31m',
+        'CRITICAL': '\033[35m',
+    }
+
+    def format(self, record):
+        color = self.COLORS.get(record.levelname, '\033[0m')
+        record.levelname = f"{color}{record.levelname}\033[0m"
+        return super().format(record)
+
+

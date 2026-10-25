@@ -8,6 +8,7 @@ from knowledge.utils.client.storage_clients import StorageClients
 
 
 class _MilvusSchemaBuilder:
+    """创建向量数据库schema"""
     @classmethod
     def build_schema(cls, milvus_client: MilvusClient, dim: int):
         # 创建Schema
@@ -61,6 +62,7 @@ class _MilvusSchemaBuilder:
 
 
 class _IndexParamsBuilder:
+    """为向量字段创建索引"""
     @classmethod
     def build_index_params(cls, milvus_client: MilvusClient):
         # 创建索引
@@ -85,7 +87,7 @@ class MilvusImportNode(BaseNode):
     name = "milvus_import_node"
 
     def process(self, state: ImportGraphState) -> ImportGraphState:
-        # 1. 参数校验
+        # 1. 参数校验，校验chunks是否为空，是否有向量
         final_chunks, dim = self._validate_state(state)
         # print(final_chunks)
         # print(dim)

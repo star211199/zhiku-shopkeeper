@@ -98,10 +98,10 @@ class AIClients(BaseClientManager):
     @classmethod
     def get_llm_client(cls, response_format: bool = True) -> ChatOpenAI:
         if response_format:
-            return cls._get_or_create("_openai_llm_json_client", cls._openai_llm_response_json_lock,
+            return cls._get_or_create("_openai_llm_response_json_client", cls._openai_llm_response_json_lock,
                                       lambda: cls._create_llm_client(response_format))
         else:
-            return cls._get_or_create("_openai_llm_text_client", cls._openai_llm_response_text_lock,
+            return cls._get_or_create("_openai_llm_response_text_client", cls._openai_llm_response_text_lock,
                                       lambda: cls._create_llm_client(response_format))
 
             # ── LLM ──

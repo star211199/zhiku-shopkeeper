@@ -9,7 +9,12 @@ from knowledge.utils.client.storage_clients import StorageClients
 from knowledge.utils.embedding_util import generate_bge_m3_hybrid_vectors
 from knowledge.utils.milvus_util import _item_names_filter, create_hybrid_search_requests, execute_hybrid_search_query
 
-
+"""
+hyde_search_node的实现：
+1、先将商品名和问题交给大模型，生成假设性答案
+2、将问题和假设性答案拼接，使用milvus向量数据库进行检索
+3、将检索到的结果返回
+"""
 class HydeSearchNode(BaseNode):
     """先让大模型根据问题生成答案，然后拼接问题和答案拿到向量数据库中进行检索"""
     name = "hyde_search_node"
@@ -79,6 +84,7 @@ class HydeSearchNode(BaseNode):
         return rewritten_query,item_names
 
     def _generate_hy_document(self, rewritten_query, item_names):
+        """将商品名和问题交给大模型时，让大模型生成解释性答案"""
         # 1. 获取llm客户端
         try:
             llm_client = AIClients.get_llm_client(response_format=False)

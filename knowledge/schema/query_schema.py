@@ -1,7 +1,7 @@
 """查询相关 Schema 定义"""
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class QueryRequest(BaseModel):
@@ -14,7 +14,7 @@ class QueryResponse(BaseModel):
     message: str = Field(..., description="响应消息")
     session_id: str = Field(..., description="会话ID")
     answer: str = Field("", description="生成的答案")
-    done_list: List[str] = Field(default=[], description="已完成的节点列表")
+    done_list: List[str] = Field(default_factory=list, description="已完成的节点列表")
 
 
 class StreamSubmitResponse(BaseModel):
@@ -24,12 +24,13 @@ class StreamSubmitResponse(BaseModel):
 
 
 class HistoryItem(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
     id: str = Field("", alias="_id")
     session_id: str = ""
     role: str = ""
     text: str = ""
     rewritten_query: str = ""
-    item_names: List[str] = Field(default=list)
+    item_names: List[str] = Field(default_factory=list)
     ts: Optional[float] = None
 
 

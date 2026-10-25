@@ -2,7 +2,12 @@ from typing import List, Dict, Any, Tuple
 from knowledge.processor.query_processor.base import BaseNode, T
 from knowledge.processor.query_processor.state import QueryGraphState
 
-
+"""
+rrf_merge_node的实现：
+1、对两路检索的结果进行格式规整化
+2、将两路结果组装成列表，并给每路设置权重
+3、进行rrf融合，将检索到的所有结果进行排序融合
+"""
 class RrfMergeNode(BaseNode):
     name = 'rrf_merge_node'
 
@@ -59,15 +64,14 @@ class RrfMergeNode(BaseNode):
 
         return formated_chunks
 
-    def _rrf_merge(self, rrf_inputs: List[Tuple[List[Dict[str, Any]], float]], k: int, rrf_max_results: int) -> List[
-        Dict[str, Any]]:
+    def _rrf_merge(self, rrf_inputs: List[Tuple[List[Dict[str, Any]], float]], k: int, rrf_max_results: int) -> List[Dict[str, Any]]:
         # 声明一个容器，用于存储每个文档的总得分。它是dict类型，key就是文档的chunk_id，value就是文档使用rrf算法得到的的得分
         chunk_score = {}
 
         # 声明一个容器，存储每个文档的内容 {"chunk_id":1,{"chunk_id":1,"title":"标题","content":"内容","score":0.12}}
         chunk_data = {}
         # 1. 遍历rrf_results
-        for rrf_input in rrf_inputs:
+        for rrf_input in rrf_inputs: # [(embedding_chunks,1.0), (hyde_embedding_chunks, 1.0)]
             # 1.1 获取当前路的权重和chunks
             chunks,weight = rrf_input
             # 2. 遍历每一路的每一条数据

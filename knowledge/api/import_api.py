@@ -1,7 +1,6 @@
 import uvicorn
 from fastapi import FastAPI, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-
 from knowledge.core.deps import get_file_process_service
 from knowledge.schema.upload_schema import UploadResponse, TaskStatusResponse
 from knowledge.core.paths import get_front_page_dir
@@ -30,16 +29,13 @@ def register_router(app: FastAPI):
 
         # 执行导入的主流程
         background_tasks.add_task(file_process_service.run_main_graph,import_file_path,file_dir,task_id)
-
-
         return UploadResponse(message="文件上传成功", task_id=task_id)
 
     @app.get("/status/{task_id}", response_model=TaskStatusResponse)
     def get_task_status(task_id: str):
         # 获取当前任务的信息
-        tas_info = get_task_info(task_id)
-
-        return TaskStatusResponse(**tas_info)
+        task_info = get_task_info(task_id)
+        return TaskStatusResponse(**task_info)
 
 def create_app():
     # 1. 创建FastAPI

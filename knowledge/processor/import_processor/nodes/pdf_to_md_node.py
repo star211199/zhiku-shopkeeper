@@ -9,27 +9,33 @@ from knowledge.processor.import_processor.base import BaseNode, T
 from knowledge.processor.import_processor.exceptions import ValidationError
 from knowledge.processor.import_processor.state import ImportGraphState
 
-
+"""
+pdf_to_md_node的实现:
+1、上传PDF到MinerU解析，然后轮询查询结果
+    根据MinerU官方给出的调用代码调用，每隔3s轮询产训是否解析成功，判断响应状态码和业务状态码，获取压缩包下载地址
+    下载压缩包，解压缩，提取md文件，返回文件路径
+2、下载MinerU解析好的zip文件，解压缩，将md文件重命名
+"""
 class PdfToMdNode(BaseNode):
     name = "pdf_to_md_node"
 
     def process(self, state: ImportGraphState) -> ImportGraphState:
         # 1. 上传并轮询MinerU的解析结果
         self.log_step(step_name="Step1", message="上传PDF到MinerU并轮询解析结果")
-        pdf_path = state.get("pdf_path","")
+        pdf_path = state.get("pdf_path", "")
         pdf_path_obj = Path(pdf_path)
-        zip_url = self._upload_pdf_and_query_result(self.config,pdf_path_obj)
+        zip_url = self._upload_pdf_and_query_result(self.config, pdf_path_obj)
 
         # 2. 下载ZIP并提取MD文件
         self.log_step(step_name="Step2", message="下载Zip并解压")
-        file_dir = state.get("file_dir","")
+        file_dir = state.get("file_dir", "")
         file_dir_obj = Path(file_dir)
-        md_path = self._extract_md(zip_url,file_dir_obj,pdf_path_obj)
+        md_path = self._extract_md(zip_url, file_dir_obj, pdf_path_obj)
         # 3. 将md_path存到state中
         state["md_path"] = md_path
         return state
 
-    def _upload_pdf_and_query_result(self,config,pdf_path_obj:Path)->str:
+    def _upload_pdf_and_query_result(self, config, pdf_path_obj: Path) -> str:
         """将PDF文件上传到MinerU解析并轮询查询结果"""
         # 1.检查MinerU配置
         mineru_token = config.mineru_api_token
@@ -108,7 +114,8 @@ class PdfToMdNode(BaseNode):
             end_time = time.time()
             if end_time - start_time > max_time:
                 # 如果耗时超过了最大时间，则终止轮询
-                self.logger.warning(f"【轮询解析结果】轮询超时，轮询时间：{end_time - start_time:.2f}s，batch_id: {batch_id}")
+                self.logger.warning(
+                    f"【轮询解析结果】轮询超时，轮询时间：{end_time - start_time:.2f}s，batch_id: {batch_id}")
                 break
             pull_url = base_url + f"/extract-results/batch/{batch_id}"
             pull_res = requests.get(pull_url, headers=header)
@@ -142,9 +149,7 @@ class PdfToMdNode(BaseNode):
                 time.sleep(interval_time)
                 continue
 
-
-
-    def _extract_md(self,zip_url:str,file_dir_obj:Path,pdf_file_obj:Path)->str:
+    def _extract_md(self, zip_url: str, file_dir_obj: Path, pdf_file_obj: Path) -> str:
         """下载生成的.zip包并解压到指定的目录，给生成的markdown文件重命名"""
         # 1.发送get请求下载zip包 --> response
         try:
@@ -159,7 +164,7 @@ class PdfToMdNode(BaseNode):
         self.logger.info(f"成功下载zip包，zip_url:{zip_url}，文件名：{pdf_file_obj.name}")
 
         # 2. 指定包的存储路径，将下载下来的zip包写到该路径下
-        #2.1 构建zip包的存储路径: 就是放在file_dir/文件名_result.zip
+        # 2.1 构建zip包的存储路径: 就是放在file_dir/文件名_result.zip
         zip_path = file_dir_obj / f"{pdf_file_obj.stem}_result.zip"
         # 2.2 将response中的内容写入到zip包存储路径下
         try:
@@ -170,12 +175,13 @@ class PdfToMdNode(BaseNode):
             raise RuntimeError(f"保存zip包失败,失败信息是{str(e)}")
 
         # 3. 解压zip包
-        #3.1 构建zip包的解压路径: file_dir/文件名，例如: output_dir/万用表RS-12的使用/
+        # 3.1 构建zip包的解压路径: file_dir/文件名，例如: output_dir/万用表RS-12的使用/
         extract_path = file_dir_obj / f"{pdf_file_obj.stem}"
         # 3.2 如果该目录下已经有内容了，要先清除该目录下的所有内容
         try:
             if extract_path.exists():
                 shutil.rmtree(str(extract_path))
+                self.logger.info("文件目录清除成功")
         except Exception as e:
             self.logger.warning(f"清除解压目录失败,失败信息是{str(e)}, 目录路径是{extract_path}，但不影响后续解压")
 

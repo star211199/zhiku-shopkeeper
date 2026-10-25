@@ -20,7 +20,6 @@ class BgeEmbeddingChunksNode(BaseNode):
         state["chunks"] = final_chunks
         # 4. 将final_chunks备份成json文件（方便后续节点的单独测试）
         self._backup_chunks(final_chunks,state)
-
         return state
 
     def _validate(self, state:ImportGraphState)->list:
@@ -73,11 +72,11 @@ class BgeEmbeddingChunksNode(BaseNode):
             dense_vectors = embedding_result.get("dense")
             sparse_vectors = embedding_result.get("sparse")
 
-            # 2.4.3 遍历batch_chunks
-            for i,chunk in enumerate(batch_chunks):
+            # 2.4.3 遍历batch_chunks，向chunk字典中增加dense_vector和sparse_vector这两字段
+            for idx, chunk in enumerate(batch_chunks):
                 # 重新组装chunks，包含稀疏向量和稠密向量
-                chunk["dense_vector"] = dense_vectors[i]
-                chunk["sparse_vector"] = sparse_vectors[i]
+                chunk["dense_vector"] = dense_vectors[idx]
+                chunk["sparse_vector"] = sparse_vectors[idx]
                 final_chunks.append(chunk)
 
         return final_chunks

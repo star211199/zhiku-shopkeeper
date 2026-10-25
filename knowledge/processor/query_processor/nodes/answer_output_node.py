@@ -1,7 +1,5 @@
 from typing import Any, Dict, List, Tuple
 
-from transformers.utils import find_labels
-
 from knowledge.processor.query_processor.base import BaseNode, T
 from knowledge.processor.query_processor.state import QueryGraphState
 from knowledge.prompts.query_prompt import ANSWER_PROMPT
@@ -31,7 +29,7 @@ class AnswerOutputNode(BaseNode):
             # 4.1 表示在答案输出节点执行之前，没有生成答案，那么就需要在答案输出节点中调用大模型来生成答案
             # 4.1.1 组装提示词
             prompt = self._build_answer_prompt(state, self.config.max_context_chars)
-            print(f"提示词:{prompt}")
+            # print(f"提示词:{prompt}")
             # 4.1.2 调用大模型生成答案
             llm_answer = self._generate_answer(prompt, state)
             state["answer"] = llm_answer

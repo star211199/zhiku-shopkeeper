@@ -7,7 +7,14 @@ from knowledge.utils.client.storage_clients import StorageClients
 from knowledge.utils.embedding_util import generate_bge_m3_hybrid_vectors
 from knowledge.utils.milvus_util import _item_names_filter, create_hybrid_search_requests, execute_hybrid_search_query
 
-
+"""
+vector_search_node的实现：
+1、参数校验
+2、获取嵌入向量模型和milvus客户端
+3、将用户的查询向量化
+4、构建混合向量请求，执行检索
+5、返回混合向量检索的结果
+"""
 class VectorSearchNode(BaseNode):
     name = "vector_search_node"
 
@@ -29,7 +36,7 @@ class VectorSearchNode(BaseNode):
 
         # 3. 将用户的查询进行向量化
         embedding_result = generate_bge_m3_hybrid_vectors(embedding_client,[rewritten_query])
-        # 4. 构建过滤条件
+        # 4. 构建过滤条件，expr:表达式，expr_params：表达式参数
         expr,expr_params = _item_names_filter(item_names)
         # 5. 构建混合向量的请求
         hybrid_search_requests = create_hybrid_search_requests(

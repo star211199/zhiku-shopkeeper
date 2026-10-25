@@ -65,7 +65,7 @@ class _MdFileHandler:
         # 5. 返回内容
         return md_content, md_path_obj, image_dir_obj
 
-    def backup_md(self,md_content:str,md_path:str)->None:
+    def backup_md(self, md_content: str, md_path: str) -> None:
         # 1. 构建备份文件的路径,在原文件路径下，但名字但是名字叫做  原文件名_new.原文件后缀
         md_path_obj = Path(md_path)
         backup_md_path_obj = md_path_obj.parent / (md_path_obj.stem + "_new" + md_path_obj.suffix)
@@ -86,8 +86,9 @@ class _ImageScanner:
 
     def scan_img_dir(self, image_dir_obj: Path, md_content: str) -> Tuple[List[ImageInfo], List[str]]:
         image_info_list = []
-        md_lines = md_content.split("\n")
-        for image_file in image_dir_obj.iterdir():
+        md_lines = md_content.split("\n") # 将md的内容按行切分
+        # 遍历目录的图片，然后遍历markdown原文内容，找到图片对应原文的位置，然后找出图片的上下文，对图片上下文信息进行截取，防止信息过长，将图片信息封转成ImageInfo然后返回
+        for image_file in image_dir_obj.iterdir(): # 遍历image_dir_obj目录下的所有图片
             # 1. 过滤子目录
             if not image_file.is_file():  # 不是文件就是目录
                 continue
@@ -102,17 +103,17 @@ class _ImageScanner:
             pattern = re.compile(r"!\[.*?]\(.*?" + re.escape(image_file.name) + r".*?\)")
 
             # 判断是否在代码块单中
-            in_code_fence = False  # 默认不在代码代码块当中
+            in_code_fence = False  # 默认不在代码块当中
             # 预定义匹配代码块的正则表达式
             code_fence_pattern = re.compile(r"^\s*```")
 
-            # 使用for循环遍历md_lines
+            # 使用for循环遍历md_lines，从markdown文件中匹配图片的位置
             for index, line in enumerate(md_lines):
                 # 判断是否在代码块当中
                 if code_fence_pattern.match(line):
                     in_code_fence = not in_code_fence
 
-                # 判断是否匹配到图片
+                # 判断是否匹配到图片，如果在代码块的当中或者和图片名不匹配就跳过
                 if in_code_fence or not pattern.match(line):
                     continue
 
@@ -142,9 +143,9 @@ class _ImageScanner:
 
         return image_info_list, md_lines
 
-    # 获取图片的上文信息
+    # 获取图片的上文信息，图片的位置到上一个标题之间的内容
     def _find_heading_content(self, md_lines: List[str], heading_pattern, image_index: int) -> Tuple[str, List[str]]:
-        # 定义找到的最近的标题索引
+        # 初始化，定义找到的最近的标题索引
         head_line_index = -1
         head_title = ""
 
@@ -168,7 +169,7 @@ class _ImageScanner:
         head_content = md_lines[head_line_index + 1:image_index - 1]
         return head_title, head_content
 
-    # 获取图片的下文信息
+    # 获取图片的下文信息，图片所在位置的下一行到下一个标题的位置之间的内容，或者到文档末尾
     def _find_post_content(self, md_lines: List[str], heading_pattern, image_index: int) -> List[str]:
         post_line_index = len(md_lines)
 
@@ -176,7 +177,7 @@ class _ImageScanner:
         code_fence_pattern = re.compile(r"^\s*```")
         in_code_fence = False
         # 遍历查找下文的标题
-        for i in range(image_index+1, post_line_index):
+        for i in range(image_index + 1, post_line_index):
             line = md_lines[i]
             # 如果在代码块当中进行反转
             if code_fence_pattern.match(line):
@@ -186,11 +187,10 @@ class _ImageScanner:
                 post_line_index = i
                 break
 
-        post_content = md_lines[image_index+1:post_line_index+1]
+        post_content = md_lines[image_index + 1:post_line_index + 1]
         return post_content
 
-
-    # 按段落优雅地截取上下文的内容
+    # 按段落优雅地截取上下文的内容，首先按照段落将上下文再次进行划分，然后按照段落截取上下文
     def _extract_image_content(self, content: List[str], img_content_length: int, direction: str) -> str:
         # 匹配图片路径的正则表达式
         image_pattern = re.compile(r"!\[.*?\]\(.*?\)")
@@ -234,7 +234,8 @@ class _ImageScanner:
 
 class _VLMSummarizer:
     """将图片信息交给大模型分析"""
-    def __init__(self,logger:Logger,config:ImportConfig):
+
+    def __init__(self, logger: Logger, config: ImportConfig):
         self.logger = logger
         self.config = config
 
@@ -244,7 +245,7 @@ class _VLMSummarizer:
         image_context = image_info.image_context
         # 2. 将图片的上下文信息组成字符串
         final_context = f"{image_context.head_title} \n {image_context.pre_context} \n {image_context.post_context}"
-        # 3. 读取图片
+        # 3. 读取图片交给大模型总结
         image_path = image_info.image_path
         with open(image_path, "rb") as f:
             import base64
@@ -289,7 +290,7 @@ class _VLMSummarizer:
         return vlm_result.choices[0].message.content
 
     """遍历总结所有的图片"""
-    def summarize_all(self, document_name, image_info_list: List[ImageInfo]):
+    def summarize_all(self, document_name, image_info_list: List[ImageInfo])->dict[str, str]:
         # 粗糙南湖每张照片的摘要信息，key:图片的名字，value：图片的摘要信息
         image_summarizes = {}
         # 1. 创建vlm模型对象
@@ -312,11 +313,13 @@ class _VLMSummarizer:
 
 class _ImageUploader:
     """将图片上传掉Minio服务器"""
-    def __init__(self, logger: Logger, config: ImportConfig):
-       self.logger = logger
-       self.config = config
 
-    def upload_and_replace(self, md_lines, document_name: str, image_info_list: List[ImageInfo],image_summarizes: Dict[str, str]) -> str:
+    def __init__(self, logger: Logger, config: ImportConfig):
+        self.logger = logger
+        self.config = config
+
+    def upload_and_replace(self, md_lines, document_name: str, image_info_list: List[ImageInfo],
+                           image_summarizes: Dict[str, str]) -> str:
         # 1. 上传图片
         remote_urls = self._upload_all(document_name, image_info_list)
         print(remote_urls)
@@ -333,7 +336,7 @@ class _ImageUploader:
         # 创建Minio对象
         from knowledge.utils.client.storage_clients import StorageClients
         try:
-            minio_client = StorageClients.get_minio()
+            minio_client = StorageClients.get_minio_client()
         except Exception as e:
             self.logger.warning(f"无法连接到MinIO服务器，图片将无法上传: {e}")
             # 兜底操作
@@ -350,7 +353,7 @@ class _ImageUploader:
                 minio_client.fput_object(
                     bucket_name=buket_name,
                     object_name=object_name,
-                    file_path=image_info.image_path
+                    file_path=image_info.image_path # 图片的本地路径
                 )
             except Exception as e:
                 # 兜底图片的原路径
@@ -358,12 +361,12 @@ class _ImageUploader:
                 continue
 
             # 组装文件在Minio上的访问url
-            remote_url = self.config.get_minio_base_url() + "/" +buket_name + "/" + object_name
+            remote_url = self.config.get_minio_base_url() + "/" + buket_name + "/" + object_name
             remote_urls[image_info.image_name] = remote_url
         return remote_urls
 
-
-    def _replace_md_content(self, md_lines: List[str], image_summarizes: Dict[str, str],remote_urls: Dict[str, str]) -> str:
+    def _replace_md_content(self, md_lines: List[str], image_summarizes: Dict[str, str],
+                            remote_urls: Dict[str, str]) -> str:
         """markdown中图片原始的描述信息替换成vlm总结的信息和地址替换成Minio中的地址"""
         # 匹配图片
         pattern = re.compile(r"!\[(.*?)\]\((.*?)\)")
@@ -379,14 +382,21 @@ class _ImageUploader:
             match = pattern.match(line)
             if not in_code_fence and match:
                 image_name = Path(match[2]).name
+                # 拼接minio服务器的图片位置
                 new_md_lines.append(f"![{image_summarizes[image_name]}]({remote_urls[image_name]})")
             else:
                 new_md_lines.append(line)
 
         return "\n".join(new_md_lines)
 
-
-
+"""
+md_image_node节点的实现：
+1、md文件的处理：返回文件内容，md路径对象，图片路径对象
+2、对图片进行处理，提取图片的上下文
+3、使用视觉模型对图片内容进行识别
+4、将图片是上传到Minio服务器
+5、备份md文件，将图片路径改成Minio服务器的地址
+"""
 class MdImageNode(BaseNode):
     """markdown中的图片处理节点"""
     name = "md_image_node"
@@ -395,7 +405,7 @@ class MdImageNode(BaseNode):
         super().__init__()
         self.md_file_handler = _MdFileHandler(logger=self.logger, node_name=self.name)
         self.image_scanner = _ImageScanner(self.config)
-        self.vlmSummarizer =  _VLMSummarizer(self.logger,self.config)
+        self.vlmSummarizer = _VLMSummarizer(self.logger, self.config)
         self.image_uploader = _ImageUploader(logger=self.logger, config=self.config)
 
     def process(self, state: ImportGraphState) -> ImportGraphState:
@@ -407,22 +417,24 @@ class MdImageNode(BaseNode):
         # print(f"image_dir_obj:{image_dir_obj}")
 
         # 2. 遍历目录中的每一张图片，与上面的md_lines中的进行匹配
-        image_info_list, md_lines = self.image_scanner.scan_img_dir(image_dir_obj,md_content)
+        image_info_list, md_lines = self.image_scanner.scan_img_dir(image_dir_obj, md_content)
         # for image_info in image_info_list:
         #     print(image_info)
         # print(md_lines)
 
         # 3. 根据图片的上下文，使用vlm模型识别图片、获取图片的描述信息
+        image_summarizes = self.vlmSummarizer.summarize_all(md_path_obj.stem, image_info_list)
 
-        image_summarizes = self.vlmSummarizer.summarize_all(md_path_obj.stem,image_info_list)
-        for key, value in image_summarizes.items():
-            print(f"{key}: {value}")
+        # for key, value in image_summarizes.items():
+        #     print(f"{key}: {value}")
 
         # 4. 将图片上传到Minio服务器，将图片的描述信息和服务器地址回填到md文档中
-        new_md_content = self.image_uploader.upload_and_replace(md_lines=md_lines, document_name=md_path_obj.stem,image_info_list=image_info_list,image_summarizes=image_summarizes)
+        new_md_content = self.image_uploader.upload_and_replace(md_lines=md_lines, document_name=md_path_obj.stem,
+                                                                image_info_list=image_info_list,
+                                                                image_summarizes=image_summarizes)
 
         # 5. 将回填的内容，备份成新的md文件
-        self.md_file_handler.backup_md(new_md_content,md_path)
+        self.md_file_handler.backup_md(new_md_content, md_path)
         state["md_content"] = new_md_content
 
         return state

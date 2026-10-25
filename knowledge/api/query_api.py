@@ -28,7 +28,7 @@ def register_router(app: FastAPI):
                     query_service:QueryService = Depends(get_query_service)) -> Union[QueryResponse, StreamSubmitResponse]:
 
         # 1. 获取session_id、task_id、query、is_stream
-        session_id = query_request.session_id or query_service.generate_session_id()
+        session_id = str(query_request.session_id or query_service.generate_session_id())
         task_id = query_service.generate_task_id()
         query = query_request.query
         is_stream = query_request.is_stream
@@ -65,7 +65,7 @@ def register_router(app: FastAPI):
         history_list = query_service.get_history(session_id=session_id)
         return HistoryResponse(session_id=session_id,items=history_list)
 
-    @app.delete("/history/{session_id")
+    @app.delete("/history/{session_id}")
     def clean_history(session_id:str,query_service:QueryService=Depends(get_query_service)):
         # 清空历史对话
         query_service.clean_history(session_id=session_id)

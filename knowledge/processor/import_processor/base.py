@@ -75,7 +75,8 @@ class BaseNode(ABC):
 
             start_time = time.time()
             # 2. 执行节点
-            result = self.process(state)
+            result = self.process(state) # process是每个子类都需要实现的方法
+
             end_time = time.time()
 
             # 添加当前节点到done列表
@@ -138,6 +139,29 @@ class BaseNode(ABC):
 #         datefmt='%Y-%m-%d %H:%M:%S',
 #         stream=sys.stdout  # 👈 添加这一行
 #     )
+    def setup_logging(level: int = logging.INFO):
+        """配置日志（带颜色输出）"""
+        # 清除现有handler
+        logging.root.handlers.clear()
+
+        # 创建handler
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(ColoredFormatter(
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        ))
+
+        # 配置日志
+        logging.root.addHandler(handler)
+        logging.root.setLevel(level)
+
+        """
+        🔵 DEBUG - 青色
+        🟢 INFO - 绿色
+        🟡 WARNING - 黄色
+        🔴 ERROR - 红色
+        🟣 CRITICAL - 紫色
+        """
 
 class ColoredFormatter(logging.Formatter):
     COLORS = {

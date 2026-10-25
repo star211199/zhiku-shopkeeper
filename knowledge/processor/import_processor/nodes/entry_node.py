@@ -4,7 +4,13 @@ from knowledge.processor.import_processor.base import BaseNode, T
 from knowledge.processor.import_processor.exceptions import StateFieldError, ValidationError
 from knowledge.processor.import_processor.state import ImportGraphState
 
-
+"""
+entry_node节点的作用：
+1、判断上传解析文件路径和输出解析后文件目录是否为空
+2、判断文件和文件夹路径是否真实存在
+3、获取文件的后缀名，判断文件的类型，更新节点的状态
+4、获取文件的标题名称，更新state的状态
+"""
 class EntryNode(BaseNode):
     name="entry_node"
 
@@ -12,8 +18,8 @@ class EntryNode(BaseNode):
     def process(self, state: ImportGraphState) -> ImportGraphState:
         # 1. 获取state中的import_file_path/file_dir，并判断是否为空
         self.log_step(step_name="Step1", message="判断路径是否为空")
-        import_file_path = state.get("import_file_path")
-        file_dir = state.get("file_dir")
+        import_file_path = state.get("import_file_path") # 输入解析的文件路径
+        file_dir = state.get("file_dir") # 输出解析后文件的目录
         # 判断值是否为空，如果为空直接抛出异常
         if not import_file_path:
             self.logger.error(f"import_file_path not found in state {state}")
@@ -62,7 +68,8 @@ class EntryNode(BaseNode):
 
 # 测试节点
 if __name__=="__main__":
-    base.setup_logging(level="DEBUG")
+    # base.setup_logging(level="DEBUG")
+    BaseNode.setup_logging(level="DEBUG")
     entry_node = EntryNode()
 
     init_state = {
@@ -70,6 +77,5 @@ if __name__=="__main__":
         "file_dir": r"../output_dir",
     }
 
-    state = entry_node(init_state)
-
+    state = entry_node(init_state) # 自动调用process方法，因为在__call__方法当中调用了process方法
     print(state)

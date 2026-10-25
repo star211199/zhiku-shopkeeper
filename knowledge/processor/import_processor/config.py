@@ -12,6 +12,14 @@ from dotenv import load_dotenv
 load_dotenv(encoding="utf-8")
 
 
+def _first_env(*keys: str, default: str = "") -> str:
+    for key in keys:
+        value = os.getenv(key)
+        if value:
+            return value
+    return default
+
+
 @dataclass
 class ImportConfig:
     """导入流程配置"""
@@ -30,10 +38,10 @@ class ImportConfig:
 
     # ==================== LLM 配置 ====================
     openai_api_base: str = field(
-        default_factory=lambda: os.getenv("OPENAI_API_BASE", "")
+        default_factory=lambda: _first_env("OPEN_API_BASE", "OPENAI_API_BASE")
     )
     openai_api_key: str = field(
-        default_factory=lambda: os.getenv("OPENAI_API_KEY", "")
+        default_factory=lambda: _first_env("OPEN_API_KEY", "OPENAI_API_KEY")
     )
     vl_model: str = field(
         default_factory=lambda: os.getenv("VL_MODEL", "")
@@ -42,7 +50,7 @@ class ImportConfig:
         default_factory=lambda: os.getenv("ITEM_MODEL", "")
     )
     default_model: str = field(
-        default_factory=lambda: os.getenv("MODEL", "")
+        default_factory=lambda: _first_env("LLM_DEFAULT_MODEL", "MODEL")
     )
 
     # ==================== Milvus 配置 ====================

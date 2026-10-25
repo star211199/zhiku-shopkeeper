@@ -1,5 +1,6 @@
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 from agents.mcp import MCPServerStreamableHttp
 from knowledge.processor.query_processor.base import BaseNode
 from knowledge.processor.query_processor.exceptions import StateFieldError
@@ -9,50 +10,58 @@ from knowledge.processor.query_processor.state import QueryGraphState
 class WebSearchNode(BaseNode):
     name = "web_search_node"
     def process(self, state: QueryGraphState) -> QueryGraphState:
-        # 1. 参数校验
-        rewritten_query,item_names = self._validate(state)
-        # 2. 调用mcp工具进行网络检索
-        execute_tool_result = asyncio.run(self.mcp_web_search(rewritten_query))
-        # print(execute_tool_result)
-        # 3. 对mcp检索的结果进行格式化
-        # 3.1 获取查询结果中的text，这其实就是一个json字符串
-        result_text = execute_tool_result.content[0].text
-        # 3.2 对json字符串进行反序列化
-        json_object = json.loads(result_text)
-        # 3.3 取出pages
-        pages = json_object["pages"]
+        rewritten_query, item_names = self._validate(state)
+        if not self.config.mcp_dashscope_base_url or not self.config.mcp_dashscope_api_key:
+            self.logger.warning("未配置 MCP 地址或 API Key，跳过网络检索")
+            return {"web_search_docs": []}  # type:ignore
 
-        # 声明一个存储web_search结果的容器
+        try:
+            execute_tool_result = self._run_coro(self.mcp_web_search(rewritten_query))
+            contents = getattr(execute_tool_result, "content", None) or []
+            if not contents:
+                return {"web_search_docs": []}  # type:ignore
+
+            result_text = contents[0].text
+            json_object = json.loads(result_text)
+            pages = json_object.get("pages") or []
+        except Exception as e:
+            self.logger.warning(f"网络检索失败，将跳过网页结果: {e}")
+            return {"web_search_docs": []}  # type:ignore
+
         web_search_docs = []
-        # 3.4 遍历pages
         for page in pages:
-            # 3.4.1 获取snippet、title、url
-            snippet = page["snippet"]
-            title = page["title"]
-            url = page["url"]
+            if not isinstance(page, dict):
+                continue
             web_search_docs.append({
-                "snippet": snippet,
-                "title": title,
-                "url": url
+                "snippet": page.get("snippet", ""),
+                "title": page.get("title", ""),
+                "url": page.get("url", ""),
             })
 
-        # 4. 将web_search_docs存入state中
-        # state["web_search_docs"] = web_search_docs
+        return {"web_search_docs": web_search_docs}  # type:ignore
 
-        return {"web_search_docs":web_search_docs} # type:ignore
+    @staticmethod
+    def _run_coro(coro):
+        """在已有/没有事件循环时都能执行协程，避免 asyncio.run 冲突。"""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(coro)
+
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
 
     async def mcp_web_search(self, rewritten_query: str):
-        # 1. 创建MCP客户端
         async with MCPServerStreamableHttp(
                 name="search_mcp",
                 params={
-                    "url": self.config.mcp_dashscope_base_url,  # MCP 服务端点
-                    "headers": {"Authorization": "Bearer your_dashscope_api_key_here"},  # 认证头
-                    "timeout": 300,  # 请求超时时间（秒）
-                    "terminate_on_close": True,  # 关闭时终止连接
+                    "url": self.config.mcp_dashscope_base_url,
+                    "headers": {"Authorization": f"Bearer {self.config.mcp_dashscope_api_key}"},
+                    "timeout": 300,
+                    "terminate_on_close": True,
                 },
-                max_retry_attempts=2,  # 最大重试次数
-                cache_tools_list=True,  # 缓存工具列表，避免重复请求
+                max_retry_attempts=2,
+                cache_tools_list=True,
         ) as client:
             # 2. 调用mcp中的网络搜索的工具
             execute_tool_result = await client.call_tool(

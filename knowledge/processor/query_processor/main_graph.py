@@ -1,5 +1,4 @@
 import logging
-
 from dotenv import load_dotenv
 from langgraph.constants import END
 from langgraph.graph.state import CompiledStateGraph, StateGraph
@@ -118,7 +117,7 @@ if __name__ == '__main__':
     print("-" * 60)
 
     mock_state_1 = {
-        "original_query": "华为擎云 G540 计算机和万用表如何使用？",
+        "original_query": "RS PRO RS-12 数字万用表如何使用？",
         "session_id": "test_session_main_graph",
         "task_id": "test_task_001",
         "is_stream": False,

@@ -23,7 +23,6 @@ class ImportProcessError(Exception):
         return " ".join(parts)
 
 
-
 class StateFieldError(ImportProcessError):
     """状态字段错误。
 

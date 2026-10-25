@@ -1,7 +1,7 @@
 import uuid
 from mcp.server.fastmcp.utilities import logging
 from knowledge.processor.query_processor.main_graph import query_app
-from knowledge.processor.query_processor.state import QueryGraphState
+from knowledge.processor.query_processor.state import create_default_state
 from knowledge.utils.mongo_history_util import get_recent_messages, clear_history
 from knowledge.utils.task_util import update_task_status, TASK_STATUS_PROCESSING, TASK_STATUS_FAILED, \
     TASK_STATUS_COMPLETED, get_task_result
@@ -12,7 +12,7 @@ class QueryService:
         return get_task_result(task_id=task_id,key="answer")
 
     def generate_session_id(self):
-        return uuid.uuid4()
+        return uuid.uuid4().hex
 
     def generate_task_id(self):
         return uuid.uuid4().hex[:12]
@@ -20,11 +20,12 @@ class QueryService:
     def run_query_graph(self, query: str, session_id: str, task_id: str, is_stream: bool):
         # 执行整个检索流程
         # 1. 创建State
-        query_graph_state = QueryGraphState()
-        query_graph_state['original_query'] = query
-        query_graph_state['session_id'] = session_id
-        query_graph_state['task_id'] = task_id
-        query_graph_state['is_stream'] = is_stream
+        query_graph_state = create_default_state(
+            original_query=query,
+            session_id=str(session_id),
+            task_id=task_id,
+            is_stream=is_stream,
+        )
         try:
             # 2. 调用LangGraph执行
             # 设置整个检索流程的状态为正在进行

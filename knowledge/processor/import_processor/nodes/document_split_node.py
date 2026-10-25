@@ -9,6 +9,16 @@ from knowledge.processor.import_processor.exceptions import StateFieldError
 from knowledge.processor.import_processor.state import ImportGraphState
 from knowledge.utils.markdown_util import MarkdownTableLinearizer
 
+"""
+document_split_done节点功能的实现：
+1、进行参数校验：返回markdown文件的内容，文件标题，获取最小长度和最大长度
+2、对内容按照标题进行划分
+3、对内容进行二次划分或者合并，满足最小长度和最大长度的范围
+4、将切分和合并后的内容组装成后续可直接使用的chunks
+5、备份chunks到json文件当中
+6、将切分后的内容存储到state中
+"""
+
 
 class DocumentSplitNode(BaseNode):
     """文件切分节点"""
@@ -38,7 +48,7 @@ class DocumentSplitNode(BaseNode):
         return state
 
     def _split_and_merge(self, sections: List[Dict[str, Any]], max_content_length: int, min_content_length: int) -> \
-            List[Dict[str, Any]]:
+    List[Dict[str, Any]]:
         """对文档进行二次划分或者合并"""
         # 1. current_sections用于收集二次切分后的section
         current_sections = []
@@ -110,9 +120,8 @@ class DocumentSplitNode(BaseNode):
             result_sections.append(split_section)
         return result_sections
 
-    def _merge_short_section(self, current_sections: List[Dict[str, Any]], min_content_length: int) -> List[
-        Dict[str, Any]]:
-        """合并短的sections"""
+    def _merge_short_section(self, current_sections: List[Dict[str, Any]], min_content_length: int) -> List[Dict[str, Any]]:
+        """合并短的sections，两个片段在同一个父标题下且长度小于最小的长度现在才合并"""
         # 1. 获取下标为0的section，记录为current_section
         current_section = current_sections[0]
         # 2. 定义final_sections用于记录收集合并后的section列表
@@ -187,7 +196,7 @@ class DocumentSplitNode(BaseNode):
         """校验和清洗数据，替换换行符，校验配置信息"""
         # 1. 统一换行符：将markdown中的"\r"替换成"\n","\r\n"替换成"\n\n"
         md_content = state.get("md_content", "")
-        new_md_content = md_content.replace("\r", "\n").replace("\r\n", "\r\n")
+        new_md_content = md_content.replace("\r", "\n").replace("\r\n", "\n\n")
         # 2. 校验配置信息：一个切片的最大长度和切片的最小长度
         max_content_length = self.config.max_content_length
         min_content_length = self.config.min_content_length
@@ -264,6 +273,7 @@ class DocumentSplitNode(BaseNode):
             if code_fence_pattern.match(md_line):
                 in_code_fence = not in_code_fence
 
+            # 匹配标题
             match = heading_re.match(md_line)
             if match and not in_code_fence:
                 # 收集上一个标题块的内容
