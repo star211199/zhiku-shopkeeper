@@ -62,8 +62,11 @@ class PdfToMdNode(BaseNode):
         # 2.4 发送请求，获取上传链接
         try:
             response = requests.post(url, headers=header, json=data)
-            # print(response.json())
-            # {'code': 0, 'msg': 'ok', 'trace_id': '3d932724ba7680f55cbf9b252eb400cf', 'data': {'batch_id': 'e1ea4bb4-1ce3-4796-9c00-e918475e473a', 'file_urls': ['https://mineru.oss-cn-shanghai.aliyuncs.com/api-upload/extract/2026-06-11/e1ea4bb4-1ce3-4796-9c00-e918475e473a/3b26b2b9-595e-46c6-bdcf-552a8bd6310b.pdf?Expires=1781263279&OSSAccessKeyId=your_oss_access_key_id&Signature=wgq%2B191r5mXwDkYI2C9ADgLSNxc%3D']}}
+            # 成功响应示例（签名字段已脱敏）：
+            # {'code': 0, 'msg': 'ok', 'trace_id': '<trace_id>',
+            #  'data': {'batch_id': '<batch_id>',
+            #           'file_urls': ['https://<mineru-oss-host>/api-upload/extract/<date>/<batch_id>/<file>.pdf'
+            #                         '?Expires=<ts>&OSSAccessKeyId=<redacted>&Signature=<redacted>']}}
             # return "success"
         except Exception as e:
             self.logger.error(f"【获取上传链接】接口调用失败，异常信息：{str(e)}")
